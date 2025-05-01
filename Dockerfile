@@ -1,20 +1,40 @@
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+FROM node:20-alpine AS base
 
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
-WORKDIR /src
-COPY ["Backend/FurnitureDelivery.API/FurnitureDelivery.API.csproj", "Backend/FurnitureDelivery.API/"]
-RUN dotnet restore "Backend/FurnitureDelivery.API/FurnitureDelivery.API.csproj"
+# Install dependencies only when needed
+FROM base AS deps
+WORKDIR /app
+
+# Copy package.json and install dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-WORKDIR "/src/Backend/FurnitureDelivery.API"
-RUN dotnet build "FurnitureDelivery.API.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "FurnitureDelivery.API.csproj" -c Release -o /app/publish
+# Build the application
+RUN npm run build
 
-FROM base AS final
+# Production image, copy all the files and run the server
+FROM base AS runner
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "FurnitureDelivery.API.dll"]
+
+ENV NODE_ENV production
+ENV PORT 5000
+
+# Copy necessary files
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# Don't run as root
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    chown -R nextjs:nodejs /app
+USER nextjs
+
+# Expose port and start application
+EXPOSE 5000
+CMD ["npm", "start"]

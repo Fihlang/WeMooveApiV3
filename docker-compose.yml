@@ -1,20 +1,25 @@
 version: '3.8'
 
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2019-latest
-    container_name: furniture_delivery_sqlserver
+  postgres:
+    image: postgres:15-alpine
+    container_name: furniture_delivery_postgres
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=Strong_Password123!
-      - MSSQL_PID=Express
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=furniture_delivery
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - furniture_delivery_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -22,12 +27,14 @@ services:
       dockerfile: Dockerfile
     container_name: furniture_delivery_api
     ports:
-      - "5000:80"
+      - "5000:5000"
     depends_on:
-      - sqlserver
+      postgres:
+        condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FurnitureDeliveryDb;User Id=sa;Password=Strong_Password123!;TrustServerCertificate=True;
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/furniture_delivery
+      - PORT=5000
     networks:
       - furniture_delivery_network
     restart: unless-stopped
@@ -37,4 +44,4 @@ networks:
     driver: bridge
 
 volumes:
-  sqlserver_data:
+  postgres_data:

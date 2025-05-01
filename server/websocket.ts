@@ -1,179 +1,209 @@
-import { Server as HttpServer } from 'http';
+import { Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { Request } from 'express';
 
-export interface WebSocketMessage {
+// Define WebSocket connection types
+interface WebSocketConnection extends WebSocket {
+  userId?: number;
+  isDriver?: boolean;
+  driverId?: number;
+  vehicleType?: string;
+  subscribedDeliveries: Set<number>;
+}
+
+// WebSocket message types
+type WebSocketMessage = {
   type: string;
   payload: any;
-}
+};
 
-interface WebSocketClient {
-  socket: WebSocket;
-  userId?: number;
-  deliveryId?: number;
-}
-
-export class WebSocketService {
+// WebSocket service class
+class WebSocketService {
   private wss: WebSocketServer;
-  private clients: Map<WebSocket, WebSocketClient> = new Map();
+  private clients: Set<WebSocketConnection>;
 
-  constructor(server: HttpServer) {
-    // Initialize WebSocket server on a distinct path
-    // to avoid conflicts with Vite's HMR websocket
+  constructor(server: Server) {
     this.wss = new WebSocketServer({ server, path: '/ws' });
+    this.clients = new Set();
+    this.initialize();
+  }
+
+  private initialize() {
+    this.wss.on('connection', (ws: WebSocketConnection) => {
+      console.log('New WebSocket connection established');
+      
+      // Initialize client properties
+      ws.subscribedDeliveries = new Set();
+      this.clients.add(ws);
+      
+      // Handle authentication message
+      ws.on('message', (message: string) => {
+        try {
+          const data = JSON.parse(message) as WebSocketMessage;
+          
+          if (data.type === 'auth') {
+            // Authenticate the user
+            this.handleAuthentication(ws, data.payload);
+          } else if (data.type === 'subscribe_delivery') {
+            // Subscribe to a delivery
+            if (data.payload && data.payload.deliveryId) {
+              this.subscribeToDelivery(ws, data.payload.deliveryId);
+            }
+          } else if (data.type === 'unsubscribe_delivery') {
+            // Unsubscribe from a delivery
+            if (data.payload && data.payload.deliveryId) {
+              this.unsubscribeFromDelivery(ws, data.payload.deliveryId);
+            }
+          } else if (data.type === 'driver_location_update') {
+            // Update driver location and broadcast to relevant clients
+            if (ws.driverId && data.payload) {
+              this.broadcastDriverLocation(ws.driverId, data.payload);
+            }
+          } else if (data.type === 'ping') {
+            // Respond to ping with pong
+            ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+          }
+        } catch (error) {
+          console.error('Error processing WebSocket message:', error);
+        }
+      });
+      
+      // Handle client disconnect
+      ws.on('close', () => {
+        this.clients.delete(ws);
+        console.log('WebSocket connection closed');
+      });
+      
+      // Send welcome message
+      ws.send(JSON.stringify({
+        type: 'welcome',
+        payload: {
+          message: 'Connected to furniture delivery service WebSocket server',
+          timestamp: new Date().toISOString()
+        }
+      }));
+    });
     
-    this.setupWebSocketServer();
     console.log('WebSocket server initialized');
   }
 
-  private setupWebSocketServer(): void {
-    this.wss.on('connection', (socket: WebSocket, request: Request) => {
-      console.log('WebSocket client connected');
+  // Handle authentication message
+  private handleAuthentication(ws: WebSocketConnection, payload: any) {
+    if (payload.userId) {
+      ws.userId = payload.userId;
       
-      // Store the client
-      this.clients.set(socket, { socket });
+      // If it's a driver, store additional information
+      if (payload.isDriver) {
+        ws.isDriver = true;
+        ws.driverId = payload.driverId;
+        ws.vehicleType = payload.vehicleType;
+        
+        console.log(`Driver ${ws.driverId} (Vehicle: ${ws.vehicleType}) authenticated via WebSocket`);
+      } else {
+        console.log(`User ${ws.userId} authenticated via WebSocket`);
+      }
       
-      // Handle messages
-      socket.on('message', (data: string) => {
-        try {
-          const message = JSON.parse(data) as WebSocketMessage;
-          this.handleMessage(socket, message);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+      // Confirm authentication
+      ws.send(JSON.stringify({
+        type: 'auth_success',
+        payload: {
+          userId: ws.userId,
+          isDriver: ws.isDriver,
+          timestamp: new Date().toISOString()
         }
-      });
-      
-      // Handle disconnection
-      socket.on('close', () => {
-        console.log('WebSocket client disconnected');
-        this.clients.delete(socket);
-      });
-      
-      // Handle errors
-      socket.on('error', (error) => {
-        console.error('WebSocket error:', error);
-      });
+      }));
+    }
+  }
+
+  // Subscribe to delivery updates
+  private subscribeToDelivery(ws: WebSocketConnection, deliveryId: number) {
+    ws.subscribedDeliveries.add(deliveryId);
+    console.log(`Client subscribed to delivery ${deliveryId}`);
+    
+    // Confirm subscription
+    ws.send(JSON.stringify({
+      type: 'subscription_success',
+      payload: {
+        deliveryId,
+        timestamp: new Date().toISOString()
+      }
+    }));
+  }
+
+  // Unsubscribe from delivery updates
+  private unsubscribeFromDelivery(ws: WebSocketConnection, deliveryId: number) {
+    ws.subscribedDeliveries.delete(deliveryId);
+    console.log(`Client unsubscribed from delivery ${deliveryId}`);
+  }
+
+  // Broadcast a message to all clients subscribed to a delivery
+  public broadcastToDelivery(deliveryId: number, message: WebSocketMessage) {
+    this.clients.forEach(client => {
+      if (client.subscribedDeliveries.has(deliveryId) && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
     });
   }
 
-  private handleMessage(socket: WebSocket, message: WebSocketMessage): void {
-    const client = this.clients.get(socket);
-    if (!client) return;
+  // Broadcast a message to a specific user
+  public broadcastToUser(userId: number, message: WebSocketMessage) {
+    this.clients.forEach(client => {
+      if (client.userId === userId && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
+  }
+
+  // Broadcast a message to all drivers
+  public broadcastToDrivers(message: WebSocketMessage) {
+    this.clients.forEach(client => {
+      if (client.isDriver && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
+  }
+
+  // Broadcast a message to drivers of a specific vehicle type
+  public broadcastToDriversByVehicleType(vehicleType: string, message: WebSocketMessage) {
+    this.clients.forEach(client => {
+      if (client.isDriver && client.vehicleType === vehicleType && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
+  }
+
+  // Broadcast driver location update to all clients tracking that delivery
+  private broadcastDriverLocation(driverId: number, locationData: any) {
+    const message: WebSocketMessage = {
+      type: 'driver_location_update',
+      payload: {
+        driverId,
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        heading: locationData.heading,
+        speed: locationData.speed,
+        timestamp: new Date().toISOString()
+      }
+    };
     
-    switch (message.type) {
-      case 'auth':
-        // Authenticate the client
-        if (message.payload.userId) {
-          client.userId = message.payload.userId;
-          console.log(`Client authenticated with userId: ${client.userId}`);
-        }
-        break;
-        
-      case 'subscribe_delivery':
-        // Subscribe to delivery updates
-        if (message.payload.deliveryId) {
-          client.deliveryId = message.payload.deliveryId;
-          console.log(`Client subscribed to deliveryId: ${client.deliveryId}`);
-        }
-        break;
-        
-      case 'driver_location':
-        // Update driver location and broadcast to relevant clients
-        if (message.payload.deliveryId && message.payload.latitude && message.payload.longitude) {
-          this.broadcastToDelivery(message.payload.deliveryId, {
-            type: 'delivery_location_update',
-            payload: {
-              deliveryId: message.payload.deliveryId,
-              latitude: message.payload.latitude,
-              longitude: message.payload.longitude,
-              estimatedArrival: message.payload.estimatedArrival
-            }
-          });
-        }
-        break;
-        
-      case 'delivery_status':
-        // Update delivery status and broadcast to relevant clients
-        if (message.payload.deliveryId && message.payload.status) {
-          this.broadcastToDelivery(message.payload.deliveryId, {
-            type: 'delivery_status_update',
-            payload: {
-              deliveryId: message.payload.deliveryId,
-              status: message.payload.status,
-              estimatedArrival: message.payload.estimatedArrival
-            }
-          });
-        }
-        break;
-        
-      case 'chat_message':
-        // Broadcast chat message to delivery participants
-        if (message.payload.deliveryId && message.payload.message) {
-          this.broadcastToDelivery(message.payload.deliveryId, {
-            type: 'chat_message',
-            payload: {
-              deliveryId: message.payload.deliveryId,
-              message: message.payload.message
-            }
-          });
-        }
-        break;
-        
-      default:
-        console.log(`Unhandled message type: ${message.type}`);
-    }
-  }
-
-  /**
-   * Send a message to a specific user
-   */
-  public sendToUser(userId: number, message: WebSocketMessage): void {
-    for (const client of this.clients.values()) {
-      if (client.userId === userId && client.socket.readyState === WebSocket.OPEN) {
-        client.socket.send(JSON.stringify(message));
+    // Find all deliveries this driver is assigned to
+    const activeDeliveries = new Set<number>();
+    
+    this.clients.forEach(client => {
+      if (client.driverId === driverId) {
+        client.subscribedDeliveries.forEach(deliveryId => {
+          activeDeliveries.add(deliveryId);
+        });
       }
-    }
+    });
+    
+    // Broadcast to all clients subscribed to those deliveries
+    activeDeliveries.forEach(deliveryId => {
+      this.broadcastToDelivery(deliveryId, message);
+    });
   }
+}
 
-  /**
-   * Broadcast a message to all clients subscribed to a specific delivery
-   */
-  public broadcastToDelivery(deliveryId: number, message: WebSocketMessage): void {
-    for (const client of this.clients.values()) {
-      if ((client.deliveryId === deliveryId || client.userId === message.payload.userId) && 
-          client.socket.readyState === WebSocket.OPEN) {
-        client.socket.send(JSON.stringify(message));
-      }
-    }
-  }
-
-  /**
-   * Broadcast a message to all authenticated drivers
-   */
-  public broadcastToDrivers(message: WebSocketMessage): void {
-    for (const client of this.clients.values()) {
-      if (client.userId && client.socket.readyState === WebSocket.OPEN) {
-        // In a real implementation, we would check if the user is a driver
-        client.socket.send(JSON.stringify(message));
-      }
-    }
-  }
-
-  /**
-   * Broadcast a message to all connected clients
-   */
-  public broadcast(message: WebSocketMessage): void {
-    for (const client of this.clients.values()) {
-      if (client.socket.readyState === WebSocket.OPEN) {
-        client.socket.send(JSON.stringify(message));
-      }
-    }
-  }
-
-  /**
-   * Get the number of connected clients
-   */
-  public getClientCount(): number {
-    return this.clients.size;
-  }
+// Create and export the WebSocket service
+export function createWebSocketService(server: Server): WebSocketService {
+  return new WebSocketService(server);
 }

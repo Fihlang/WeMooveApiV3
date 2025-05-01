@@ -13,7 +13,7 @@ import {
   insertPaymentSchema,
   insertMessageSchema,
   insertNotificationSchema
-} from "@shared/schema";
+} from "../shared/db-schema";
 
 export async function registerFurnitureRoutes(app: Express): Promise<Server> {
   // prefix all routes with /api

@@ -1,7 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 // import { registerRoutes } from "./routes"; // Original routes
 import { registerFurnitureRoutes } from "./furniture-routes"; // New Furniture Delivery routes
+import { registerDeliveryRoutes } from "./delivery-routes"; // New Delivery API
 import { setupVite, serveStatic, log } from "./vite";
+import { closeDbConnection } from "./db";
 
 const app = express();
 app.use(express.json());
@@ -38,14 +40,26 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerFurnitureRoutes(app);
-
+  // Register both API sets
+  const server = await registerDeliveryRoutes(app);
+  
+  // Set up error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
     throw err;
+  });
+
+  // Set up graceful shutdown
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    await closeDbConnection();
+    server.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
   });
 
   // importantly only setup vite in development and after
@@ -66,6 +80,6 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`server running at http://0.0.0.0:${port}/`);
   });
 })();
