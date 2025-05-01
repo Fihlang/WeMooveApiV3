@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Delivery is Confirmed!</title>
+    <title>Delivery Confirmation</title>
     <style>
         /* Reset styles */
         body, html {
@@ -80,37 +80,85 @@
             margin-bottom: 20px;
         }
         
-        /* Tracking info styles */
-        .tracking-info {
-            background-color: #f5f5f5;
+        /* Confirmation box */
+        .confirmation-box {
+            background-color: #f0fff0;
+            border: 1px solid #99e699;
+            border-left: 4px solid #4CAF50;
             padding: 15px;
-            border-radius: 4px;
             margin: 20px 0;
+            border-radius: 4px;
         }
         
-        .tracking-info p {
-            margin: 5px 0;
+        /* Order details */
+        .order-details {
+            margin: 20px 0;
+            border: 1px solid #eeeeee;
+            border-radius: 8px;
+            overflow: hidden;
         }
         
-        /* Order summary styles */
-        .order-summary {
+        .order-header {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-bottom: 1px solid #eeeeee;
+        }
+        
+        .order-body {
+            padding: 15px;
+        }
+        
+        .order-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        
+        .order-label {
+            font-weight: bold;
+            width: 180px;
+            flex-shrink: 0;
+        }
+        
+        .order-value {
+            flex: 1;
+        }
+        
+        /* Items table */
+        .items-table {
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
         }
         
-        .order-summary th, .order-summary td {
-            border: 1px solid #ddd;
-            padding: 8px;
+        .items-table th {
+            background-color: #f5f5f5;
             text-align: left;
+            padding: 10px;
+            border-bottom: 2px solid #ddd;
         }
         
-        .order-summary th {
-            background-color: #f2f2f2;
+        .items-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
         }
         
-        .order-summary tr:nth-child(even) {
-            background-color: #f9f9f9;
+        /* Payment status */
+        .payment-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        
+        .payment-status.paid {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .payment-status.pending {
+            background-color: #fff8e1;
+            color: #f57f17;
         }
         
         /* Responsive styles */
@@ -122,6 +170,19 @@
             
             .content, .header, .footer {
                 padding: 15px;
+            }
+            
+            .order-row {
+                flex-direction: column;
+            }
+            
+            .order-label {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+            
+            .items-table th, .items-table td {
+                padding: 8px;
             }
         }
     </style>
@@ -135,25 +196,58 @@
         </div>
         
         <div class="content">
-            <h2>Delivery Confirmation</h2>
+            <div class="confirmation-box">
+                <h2>Delivery Booking Confirmed!</h2>
+                <p>Your furniture delivery has been successfully booked and confirmed. Please review the details below.</p>
+            </div>
             
             <p>Hello {{customerName}},</p>
             
-            <p>Your furniture delivery has been confirmed! Thank you for choosing our service. Below are the details of your delivery:</p>
+            <p>Thank you for choosing Furniture Delivery. This email confirms that we've received your delivery request and are processing it.</p>
             
-            <div class="tracking-info">
-                <p><strong>Delivery ID:</strong> {{deliveryId}}</p>
-                <p><strong>Scheduled Date:</strong> {{scheduledDate}}</p>
-                <p><strong>Time Window:</strong> {{timeWindow}}</p>
-                <p><strong>Pickup Address:</strong> {{pickupAddress}}</p>
-                <p><strong>Delivery Address:</strong> {{deliveryAddress}}</p>
-                <p><strong>Total Amount:</strong> {{totalAmount}}</p>
-                <p><strong>Payment Status:</strong> {{paymentStatus}}</p>
+            <div class="order-details">
+                <div class="order-header">
+                    <h3>Delivery #{{deliveryId}} Details</h3>
+                </div>
+                
+                <div class="order-body">
+                    <div class="order-row">
+                        <div class="order-label">Scheduled Date:</div>
+                        <div class="order-value">{{scheduledDate}}</div>
+                    </div>
+                    
+                    <div class="order-row">
+                        <div class="order-label">Time Window:</div>
+                        <div class="order-value">{{timeWindow}}</div>
+                    </div>
+                    
+                    <div class="order-row">
+                        <div class="order-label">Pickup Address:</div>
+                        <div class="order-value">{{pickupAddress}}</div>
+                    </div>
+                    
+                    <div class="order-row">
+                        <div class="order-label">Delivery Address:</div>
+                        <div class="order-value">{{deliveryAddress}}</div>
+                    </div>
+                    
+                    <div class="order-row">
+                        <div class="order-label">Total Amount:</div>
+                        <div class="order-value">{{totalAmount}}</div>
+                    </div>
+                    
+                    <div class="order-row">
+                        <div class="order-label">Payment Status:</div>
+                        <div class="order-value">
+                            <span class="payment-status {{paymentStatus}}">{{paymentStatus}}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <h3>Items Being Delivered</h3>
+            <h3>Items to be Delivered</h3>
             
-            <table class="order-summary">
+            <table class="items-table">
                 <thead>
                     <tr>
                         <th>Item</th>
@@ -172,15 +266,20 @@
                 </tbody>
             </table>
             
+            <h3>What Happens Next?</h3>
+            
+            <p>1. We'll assign a suitable driver for your delivery.</p>
+            <p>2. You'll receive a notification once a driver is assigned.</p>
+            <p>3. On the delivery day, the driver will contact you before arriving at the pickup location.</p>
+            <p>4. You can track your delivery in real-time once it's in progress.</p>
+            
             <div class="text-center">
                 <a href="{{trackingUrl}}" class="button">Track Your Delivery</a>
             </div>
             
-            <p>Please be available at the delivery address during the scheduled time window. If you need to make any changes to your delivery, please contact us at least 24 hours before the scheduled date.</p>
+            <p>If you need to make any changes to your delivery booking, please contact our customer service team at least 24 hours before the scheduled pickup time at <a href="mailto:support@furnituredelivery.co.za">support@furnituredelivery.co.za</a> or call us at <a href="tel:+27123456789">+27 12 345 6789</a>.</p>
             
-            <p>If you have any questions or concerns, feel free to contact our customer service team at <a href="mailto:support@furnituredelivery.co.za">support@furnituredelivery.co.za</a> or call us at <a href="tel:+27123456789">+27 12 345 6789</a>.</p>
-            
-            <p>Thank you for choosing Furniture Delivery!</p>
+            <p>Thank you for choosing Furniture Delivery. We look forward to providing you with a seamless delivery experience.</p>
             
             <p>Best regards,<br>The Furniture Delivery Team</p>
         </div>

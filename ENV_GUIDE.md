@@ -24,6 +24,12 @@ The application uses `.env` files to configure environment-specific settings. Th
 | CORS_ORIGIN | Allowed CORS origins | `http://localhost:3000` |
 | WS_PATH | WebSocket server path | `/ws` |
 | LOG_LEVEL | Logging level | `info` |
+| SMTP_HOST | Email server hostname | `smtp.gmail.com` |
+| SMTP_PORT | Email server port | `587` |
+| SMTP_SECURE | Use secure connection | `false` (or `true` for port 465) |
+| SMTP_USER | Email server username | `user@example.com` |
+| SMTP_PASS | Email server password | `your_smtp_password` |
+| EMAIL_FROM | Sender email address | `Furniture Delivery <no-reply@furnituredelivery.co.za>` |
 
 ## Environment-Specific Settings
 
@@ -40,6 +46,13 @@ JWT_SECRET=furniture_delivery_dev_jwt_secret
 CORS_ORIGIN=http://localhost:3000
 WS_PATH=/ws
 LOG_LEVEL=debug
+# In development, leave SMTP settings commented out to use Ethereal for testing
+# SMTP_HOST=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_SECURE=false
+# SMTP_USER=your.email@gmail.com
+# SMTP_PASS=your_app_password
+# EMAIL_FROM=Furniture Delivery <your.email@gmail.com>
 ```
 
 ### Production (DigitalOcean)
@@ -61,6 +74,13 @@ JWT_SECRET=<generated_secure_secret>
 CORS_ORIGIN=https://your-domain.com
 WS_PATH=/ws
 LOG_LEVEL=info
+# Email configuration for production environment
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=delivery@furnituredelivery.co.za
+SMTP_PASS=<your_smtp_password>
+EMAIL_FROM=Furniture Delivery <no-reply@furnituredelivery.co.za>
 ```
 
 ## Security Considerations
@@ -94,6 +114,12 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/furniture_delivery
       - SESSION_SECRET=${SESSION_SECRET}
       - JWT_SECRET=${JWT_SECRET}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
 ```
 
 ## DigitalOcean Specific Configuration

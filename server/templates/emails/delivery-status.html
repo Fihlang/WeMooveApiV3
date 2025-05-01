@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delivery Status Update</title>
+    <title>Update on Your Delivery</title>
     <style>
         /* Reset styles */
         body, html {
@@ -80,100 +80,134 @@
             margin-bottom: 20px;
         }
         
-        /* Status section */
-        .status-section {
-            border-left: 4px solid #663399;
-            padding-left: 15px;
-            margin: 25px 0;
+        /* Status badge */
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: white;
         }
         
-        /* Status indicator */
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            margin: 25px 0;
+        /* Progress bar */
+        .progress-container {
+            margin: 30px 0;
+            padding: 10px 0;
         }
         
-        .status-circle {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-        
-        .status-circle.confirmed {
-            background-color: #5B72FF;
-        }
-        
-        .status-circle.processing {
-            background-color: #FFA500;
-        }
-        
-        .status-circle.driver-assigned {
-            background-color: #32CD32;
-        }
-        
-        .status-circle.in-transit {
-            background-color: #1E90FF;
-        }
-        
-        .status-circle.delivered {
-            background-color: #008000;
-        }
-        
-        /* Status line */
-        .status-line {
+        .progress-track {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin: 30px 0;
             position: relative;
+            margin-bottom: 30px;
         }
         
-        .status-line::after {
+        .progress-track:before {
             content: '';
             position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #dddddd;
+            top: 12px;
+            left: 15px;
+            right: 15px;
+            height: 3px;
+            background-color: #e0e0e0;
             z-index: 1;
         }
         
-        .status-step {
+        .progress-step {
+            position: relative;
+            z-index: 2;
+            text-align: center;
             width: 30px;
             height: 30px;
             border-radius: 50%;
-            background-color: #dddddd;
+            background-color: #e0e0e0;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            color: white;
-            position: relative;
-            z-index: 2;
+            color: #666666;
         }
         
-        .status-step.active {
+        .progress-step.active {
             background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+            color: white;
         }
         
-        .status-step.completed {
-            background-color: #4CAF50;
+        .progress-step.completed {
+            background: #4CAF50;
+            color: white;
         }
         
-        /* Map placeholder */
-        .map-placeholder {
-            width: 100%;
-            height: 200px;
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 15px;
+        }
+        
+        .progress-label {
+            font-size: 12px;
+            text-align: center;
+            width: 70px;
+            margin-left: -20px;
+        }
+        
+        /* ETA box */
+        .eta-box {
             background-color: #f5f5f5;
+            border-left: 4px solid #5B72FF;
+            padding: 15px;
+            margin: 20px 0;
             border-radius: 4px;
+        }
+        
+        /* Driver info styles */
+        .driver-card {
+            border: 1px solid #eeeeee;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .driver-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .driver-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #dddddd;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 20px 0;
-            border: 1px dashed #cccccc;
+            margin-right: 15px;
+            font-size: 24px;
+            color: #ffffff;
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+        }
+        
+        .driver-info {
+            flex: 1;
+        }
+        
+        .driver-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+        }
+        
+        .vehicle-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #ffffff;
+            border-radius: 4px;
         }
         
         /* Responsive styles */
@@ -185,6 +219,18 @@
             
             .content, .header, .footer {
                 padding: 15px;
+            }
+            
+            .progress-track {
+                margin-bottom: 50px;
+            }
+            
+            .progress-labels {
+                flex-wrap: wrap;
+            }
+            
+            .progress-label {
+                margin-bottom: 10px;
             }
         }
     </style>
@@ -198,56 +244,76 @@
         </div>
         
         <div class="content">
+            <div class="text-center">
+                <div class="status-badge" style="background-color: {{statusColor}};">
+                    {{statusName}}
+                </div>
+            </div>
+            
             <h2>Delivery Status Update</h2>
             
             <p>Hello {{customerName}},</p>
             
-            <p>We're writing to inform you that your delivery (ID: {{deliveryId}}) status has been updated.</p>
+            <p>We're writing to update you on the status of your furniture delivery (ID: {{deliveryId}}).</p>
             
-            <div class="status-section">
-                <h3>Current Status: <span style="color: {{statusColor}};">{{statusName}}</span></h3>
-                <p>{{statusDescription}}</p>
-                <p><strong>Updated on:</strong> {{updateTime}}</p>
+            <p><strong>Current Status:</strong> {{statusName}}</p>
+            <p><strong>Update Time:</strong> {{updateTime}}</p>
+            <p>{{statusDescription}}</p>
+            
+            <div class="progress-container">
+                <div class="progress-track">
+                    <div class="progress-step {{#if step1Active}}active{{/if}} {{#if step1Completed}}completed{{/if}}">1</div>
+                    <div class="progress-step {{#if step2Active}}active{{/if}} {{#if step2Completed}}completed{{/if}}">2</div>
+                    <div class="progress-step {{#if step3Active}}active{{/if}} {{#if step3Completed}}completed{{/if}}">3</div>
+                    <div class="progress-step {{#if step4Active}}active{{/if}} {{#if step4Completed}}completed{{/if}}">4</div>
+                    <div class="progress-step {{#if step5Active}}active{{/if}} {{#if step5Completed}}completed{{/if}}">5</div>
+                </div>
+                <div class="progress-labels">
+                    <div class="progress-label">Confirmed</div>
+                    <div class="progress-label">Processing</div>
+                    <div class="progress-label">Driver Assigned</div>
+                    <div class="progress-label">In Transit</div>
+                    <div class="progress-label">Delivered</div>
+                </div>
             </div>
             
-            <div class="status-line">
-                <div class="status-step {{#if step1Completed}}completed{{else if step1Active}}active{{/if}}">1</div>
-                <div class="status-step {{#if step2Completed}}completed{{else if step2Active}}active{{/if}}">2</div>
-                <div class="status-step {{#if step3Completed}}completed{{else if step3Active}}active{{/if}}">3</div>
-                <div class="status-step {{#if step4Completed}}completed{{else if step4Active}}active{{/if}}">4</div>
-                <div class="status-step {{#if step5Completed}}completed{{else if step5Active}}active{{/if}}">5</div>
+            {{#if estimatedDeliveryTime}}
+            <div class="eta-box">
+                <p><strong>Estimated Delivery Time:</strong> {{estimatedDeliveryTime}}</p>
+                <p>Please note this is an estimate and may change based on traffic conditions and other factors.</p>
             </div>
-            
-            <div class="text-center">
-                <p class="mb-20">Confirmed → Processing → Driver Assigned → In Transit → Delivered</p>
-            </div>
+            {{/if}}
             
             {{#if driverAssigned}}
-            <div class="driver-info">
-                <h3>Driver Information</h3>
-                <p><strong>Driver:</strong> {{driverName}}</p>
-                <p><strong>Vehicle:</strong> {{vehicleType}} - {{vehicleColor}} {{vehicleMake}} {{vehicleModel}}</p>
-                <p><strong>License Plate:</strong> {{licensePlate}}</p>
-                <p><strong>Contact:</strong> {{driverPhone}}</p>
+            <h3>Driver Information</h3>
+            <div class="driver-card">
+                <div class="driver-header">
+                    <div class="driver-avatar">
+                        {{driverInitials}}
+                    </div>
+                    <div class="driver-info">
+                        <h3 class="driver-name">{{driverName}}</h3>
+                        <p>Your assigned driver</p>
+                    </div>
+                </div>
+                
+                <div class="vehicle-info">
+                    <p><strong>Vehicle:</strong> {{vehicleType}} - {{vehicleColor}} {{vehicleMake}} {{vehicleModel}}</p>
+                    <p><strong>License Plate:</strong> {{licensePlate}}</p>
+                    <p><strong>Contact:</strong> {{driverPhone}}</p>
+                </div>
             </div>
             {{/if}}
             
             {{#if inTransit}}
-            <h3>Track Your Delivery</h3>
-            <p>Your driver is currently en route to deliver your items. You can track the delivery in real-time by clicking the button below.</p>
-            
-            <div class="map-placeholder">
-                <p>Live tracking map will appear in the app</p>
-            </div>
+            <p>Your driver is currently en route with your furniture. You can track their progress in real-time through our app or website.</p>
             {{/if}}
             
             <div class="text-center">
                 <a href="{{trackingUrl}}" class="button">Track Your Delivery</a>
             </div>
             
-            <p>Estimated delivery time: <strong>{{estimatedDeliveryTime}}</strong></p>
-            
-            <p>If you have any questions or need to make changes to your delivery, please contact our customer service team at <a href="mailto:support@furnituredelivery.co.za">support@furnituredelivery.co.za</a> or call us at <a href="tel:+27123456789">+27 12 345 6789</a>.</p>
+            <p>If you have any questions or need additional information, please contact our customer service team at <a href="mailto:support@furnituredelivery.co.za">support@furnituredelivery.co.za</a> or call us at <a href="tel:+27123456789">+27 12 345 6789</a>.</p>
             
             <p>Thank you for choosing Furniture Delivery!</p>
             
