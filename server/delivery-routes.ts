@@ -19,6 +19,14 @@ import {
 } from '../shared/db-schema';
 import bcrypt from 'bcrypt';
 import argon2 from 'argon2';
+import { 
+  sendWelcomeEmail,
+  sendDeliveryConfirmationEmail,
+  sendDriverAssignedEmail,
+  sendDeliveryStatusEmail,
+  sendDeliveryCompleteEmail,
+  EmailTemplate
+} from './services/email.service';
 
 // Helper function to validate request body
 function validateRequest(req: Request, schema: any) {
@@ -60,6 +68,26 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
       
       // Return user without password
       const { passwordHash, ...userWithoutPassword } = user;
+      
+      // Send welcome email asynchronously (don't wait for it to complete)
+      try {
+        // Create a dashboard URL based on the user's role
+        const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+        const dashboardUrl = `${baseUrl}/${user.role === 'customer' ? 'customer' : 'driver'}/dashboard`;
+        
+        sendWelcomeEmail(
+          user.email,
+          user.firstName,
+          user.lastName,
+          dashboardUrl
+        ).catch(emailError => {
+          // Just log email errors, don't fail the registration
+          console.error('Error sending welcome email:', emailError);
+        });
+      } catch (emailError) {
+        console.error('Error sending welcome email:', emailError);
+      }
+      
       res.status(201).json(userWithoutPassword);
     } catch (error) {
       console.error('Error registering user:', error);
@@ -238,6 +266,82 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
         payload: delivery
       });
       
+      // Send delivery confirmation email asynchronously
+      try {
+        // Get customer and delivery details needed for the email
+        const customer = await deliveryStorage.getCustomerByUserId(delivery.customerId);
+        if (customer) {
+          const user = await deliveryStorage.getUser(customer.userId);
+          const pickupAddress = await deliveryStorage.getAddress(delivery.pickupAddressId);
+          const deliveryAddress = await deliveryStorage.getAddress(delivery.dropoffAddressId);
+          
+          if (user && pickupAddress && deliveryAddress) {
+            const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+            const trackingUrl = `${baseUrl}/customer/deliveries/${delivery.id}/track`;
+            
+            // Format addresses
+            const pickupAddressFormatted = `${pickupAddress.addressLine1}, ${pickupAddress.city}, ${pickupAddress.province}, ${pickupAddress.zipCode}`;
+            const deliveryAddressFormatted = `${deliveryAddress.addressLine1}, ${deliveryAddress.city}, ${deliveryAddress.province}, ${deliveryAddress.zipCode}`;
+            
+            // Format scheduled date
+            const scheduledDate = delivery.scheduledPickupTime 
+              ? new Date(delivery.scheduledPickupTime).toLocaleDateString('en-ZA', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })
+              : 'To be scheduled';
+            
+            // Format time window
+            const timeWindow = 'Flexible'; // Since we don't have explicit time window fields
+            
+            // Get delivery items if any
+            const deliveryItems = await deliveryStorage.getDeliveryItemsByDeliveryId(delivery.id);
+            const items = await Promise.all(deliveryItems.map(async (item) => {
+              const furniture = await deliveryStorage.getFurniture(item.furnitureId);
+              return {
+                name: furniture ? furniture.name : `Item #${item.id}`,
+                quantity: item.quantity || 1,
+                specialHandling: item.notes || 'Standard handling'
+              };
+            }));
+            
+            // If there are no items added yet, add a placeholder item based on delivery type
+            if (items.length === 0) {
+              items.push({
+                name: delivery.requiredVehicleType === 'truck' ? 'Furniture delivery' : 'Package delivery',
+                quantity: 1,
+                specialHandling: 'Standard handling'
+              });
+            }
+            
+            // Format payment status
+            const payment = await deliveryStorage.getPaymentByDeliveryId(delivery.id);
+            const paymentStatus = payment ? payment.status : 'pending';
+            
+            // Send the confirmation email
+            sendDeliveryConfirmationEmail(
+              user.email,
+              `${user.firstName} ${user.lastName}`,
+              delivery.id.toString(),
+              scheduledDate,
+              timeWindow,
+              pickupAddressFormatted,
+              deliveryAddressFormatted,
+              `R ${parseFloat(delivery.price).toFixed(2)}`,
+              paymentStatus,
+              items,
+              trackingUrl
+            ).catch(emailError => {
+              console.error('Error sending delivery confirmation email:', emailError);
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending delivery confirmation email:', emailError);
+      }
+      
       res.status(201).json(delivery);
     } catch (error) {
       console.error('Error creating delivery:', error);
@@ -287,6 +391,7 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
       if (deliveryWithDetails) {
         const statusMessage = getStatusMessage(status);
         
+        // Create in-app notification
         await deliveryStorage.createNotification({
           userId: deliveryWithDetails.customer.id,
           title: 'Delivery Status Update',
@@ -294,6 +399,102 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
           type: 'delivery_update',
           referenceId: deliveryId
         });
+        
+        // Send email notification for status update
+        try {
+          const customer = deliveryWithDetails.customer;
+          if (customer && customer.email) {
+            // Get addresses for the email
+            const pickupAddress = deliveryWithDetails.pickupAddress;
+            const dropoffAddress = deliveryWithDetails.dropoffAddress;
+            
+            if (pickupAddress && dropoffAddress) {
+              // Format addresses
+              const pickupAddressFormatted = `${pickupAddress.addressLine1}, ${pickupAddress.city}, ${pickupAddress.province}, ${pickupAddress.zipCode}`;
+              const dropoffAddressFormatted = `${dropoffAddress.addressLine1}, ${dropoffAddress.city}, ${dropoffAddress.province}, ${dropoffAddress.zipCode}`;
+              
+              // Create tracking URL
+              const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+              const trackingUrl = `${baseUrl}/customer/deliveries/${deliveryId}/track`;
+              
+              // Format update time
+              const updateTime = new Date().toLocaleString('en-ZA', {
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: true,
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
+              
+              // Format ETA if available
+              const estimatedDeliveryTime = deliveryWithDetails.estimatedDeliveryTime 
+                ? new Date(deliveryWithDetails.estimatedDeliveryTime).toLocaleString('en-ZA', {
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    hour12: true,
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })
+                : 'To be determined';
+              
+              // Determine status color for email styling
+              const statusColorMap: Record<string, string> = {
+                'pending': '#f5a623',
+                'accepted': '#0070f3',
+                'driver_en_route_to_pickup': '#0070f3',
+                'at_pickup': '#0070f3',
+                'loading': '#0070f3',
+                'in_transit': '#0070f3',
+                'arriving': '#0070f3',
+                'at_dropoff': '#0070f3',
+                'unloading': '#0070f3',
+                'completed': '#00c853',
+                'cancelled': '#f44336',
+              };
+              const statusColor = statusColorMap[status] || '#0070f3';
+              
+              // Get driver info for the email if available
+              let driverInfo = undefined;
+              if (deliveryWithDetails.driver && deliveryWithDetails.driver.user) {
+                const driver = deliveryWithDetails.driver;
+                driverInfo = {
+                  name: `${driver.user.firstName} ${driver.user.lastName}`,
+                  phone: driver.user.phone,
+                  vehicleType: driver.vehicleType,
+                  vehicleColor: driver.vehicleColor,
+                  vehicleMake: driver.vehicleMake,
+                  vehicleModel: driver.vehicleModel,
+                  licensePlate: driver.licensePlate
+                };
+              }
+              
+              // Clean status name for display
+              const cleanStatusName = status.replace(/_/g, ' ').toUpperCase();
+              
+              // Send the status update email
+              sendDeliveryStatusEmail(
+                customer.email,
+                `${customer.firstName} ${customer.lastName}`,
+                deliveryId.toString(),
+                cleanStatusName,
+                statusMessage,
+                updateTime,
+                trackingUrl,
+                statusColor,
+                estimatedDeliveryTime,
+                driverInfo
+              ).catch(emailError => {
+                console.error('Error sending delivery status email:', emailError);
+              });
+            }
+          }
+        } catch (emailError) {
+          console.error('Error preparing delivery status email:', emailError);
+        }
       }
       
       res.json(delivery);
@@ -330,13 +531,83 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
         // Create a notification for the customer
         const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(deliveryId);
         if (deliveryWithDetails) {
+          const customer = deliveryWithDetails.customer;
+          
+          // Create in-app notification
           await deliveryStorage.createNotification({
-            userId: deliveryWithDetails.customer.id,
+            userId: customer.id,
             title: 'Driver Assigned',
             message: `${driver.user?.firstName} ${driver.user?.lastName} has been assigned to your delivery.`,
             type: 'delivery_update',
             referenceId: deliveryId
           });
+          
+          // Send driver assignment email notification
+          try {
+            if (customer && customer.email) {
+              // Get addresses for the email
+              const pickupAddress = deliveryWithDetails.pickupAddress;
+              const dropoffAddress = deliveryWithDetails.dropoffAddress;
+              
+              if (pickupAddress && dropoffAddress) {
+                // Format addresses
+                const pickupAddressFormatted = `${pickupAddress.addressLine1}, ${pickupAddress.city}, ${pickupAddress.province}, ${pickupAddress.zipCode}`;
+                const dropoffAddressFormatted = `${dropoffAddress.addressLine1}, ${dropoffAddress.city}, ${dropoffAddress.province}, ${dropoffAddress.zipCode}`;
+                
+                // Create tracking URL
+                const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+                const trackingUrl = `${baseUrl}/customer/deliveries/${deliveryId}/track`;
+                
+                // Format scheduled date
+                const scheduledDate = deliveryWithDetails.scheduledPickupTime 
+                  ? new Date(deliveryWithDetails.scheduledPickupTime).toLocaleDateString('en-ZA', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })
+                  : 'To be scheduled';
+                
+                // Format time window
+                const timeWindow = 'Flexible'; // Since we don't have explicit time window fields
+                
+                // Get driver initials for profile circle
+                const driverFirstName = driver.user?.firstName || '';
+                const driverLastName = driver.user?.lastName || '';
+                const driverInitials = (driverFirstName.charAt(0) + driverLastName.charAt(0)).toUpperCase();
+                
+                // Get driver rating info
+                const rating = driver.rating || 0;
+                const ratingCount = driver.ratingCount || 0;
+                
+                // Send the driver assignment email
+                sendDriverAssignedEmail(
+                  customer.email,
+                  `${customer.firstName} ${customer.lastName}`,
+                  deliveryId.toString(),
+                  `${driverFirstName} ${driverLastName}`,
+                  driverInitials,
+                  driver.user?.phone || 'Not available',
+                  driver.vehicleType || 'Standard vehicle',
+                  driver.vehicleColor || 'Not specified',
+                  driver.vehicleMake || 'Not specified',
+                  driver.vehicleModel || 'Not specified',
+                  driver.licensePlate || 'Not available',
+                  scheduledDate,
+                  timeWindow,
+                  pickupAddressFormatted,
+                  dropoffAddressFormatted,
+                  trackingUrl,
+                  ratingCount,
+                  rating
+                ).catch(emailError => {
+                  console.error('Error sending driver assignment email:', emailError);
+                });
+              }
+            }
+          } catch (emailError) {
+            console.error('Error preparing driver assignment email:', emailError);
+          }
         }
       }
       

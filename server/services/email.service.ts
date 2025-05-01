@@ -2,6 +2,11 @@ import nodemailer from 'nodemailer';
 import fs from 'fs-extra';
 import path from 'path';
 import Handlebars from 'handlebars';
+import { fileURLToPath } from 'url';
+
+// Get the directory name in ESM context
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Template directory path
 const TEMPLATE_DIR = path.join(__dirname, '../templates/emails');
@@ -26,8 +31,8 @@ const createTransporter = async () => {
     // Create a test account on ethereal.email
     const testAccount = await nodemailer.createTestAccount();
     
-    // Log the test account URL for viewing emails
-    console.log('Ethereal Email URL for viewing test emails:', nodemailer.getTestMessageUrl);
+    // Log the test account information
+    console.log('Ethereal Email test account created:', testAccount);
     
     // Create a SMTP transporter using ethereal.email
     return nodemailer.createTransport({
@@ -105,9 +110,12 @@ export const sendTemplateEmail = async ({
       text: html.replace(/<[^>]*>/g, ''), // Simple HTML to text conversion
     });
     
-    // For development, log the URL where the sent email can be viewed
+    // For development, log the email info
     if (process.env.NODE_ENV !== 'production') {
-      console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
+      console.log('Email sent:', info);
+      if (info && typeof nodemailer.getTestMessageUrl === 'function') {
+        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
+      }
     }
     
     return info;

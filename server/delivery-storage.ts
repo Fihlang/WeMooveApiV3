@@ -40,6 +40,7 @@ export interface IDeliveryStorage {
   // Address operations
   createAddress(address: InsertAddress): Promise<Address>;
   getAddressesByUserId(userId: number): Promise<Address[]>;
+  getAddress(id: number): Promise<Address | undefined>;
   
   // Package operations
   createPackage(packageData: InsertPackage): Promise<Package>;
@@ -148,6 +149,11 @@ export class DeliveryDatabaseStorage implements IDeliveryStorage {
   
   async getAddressesByUserId(userId: number): Promise<Address[]> {
     return db.select().from(schema.addresses).where(eq(schema.addresses.userId, userId));
+  }
+  
+  async getAddress(id: number): Promise<Address | undefined> {
+    const addresses = await db.select().from(schema.addresses).where(eq(schema.addresses.id, id)).limit(1);
+    return addresses[0];
   }
   
   // Package operations
