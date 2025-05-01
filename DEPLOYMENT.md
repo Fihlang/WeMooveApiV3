@@ -47,7 +47,26 @@ Add the following environment variables to the `.env` file:
 NODE_ENV=production
 DATABASE_URL=postgres://postgres:postgres@postgres:5432/furniture_delivery
 PORT=5000
+SESSION_SECRET=your_secure_session_secret_here
+JWT_SECRET=your_secure_jwt_secret_here
+CORS_ORIGIN=https://your-domain.com
+WS_PATH=/ws
+LOG_LEVEL=info
 ```
+
+For secure production deployment, generate strong random secrets:
+
+```bash
+# Generate secure random strings for SESSION_SECRET and JWT_SECRET
+SESSION_SECRET=$(openssl rand -base64 32)
+JWT_SECRET=$(openssl rand -base64 32)
+
+# Add them to your .env file
+echo "SESSION_SECRET=$SESSION_SECRET" >> .env
+echo "JWT_SECRET=$JWT_SECRET" >> .env
+```
+
+For more detailed information on environment configuration, see the `ENV_GUIDE.md` file.
 
 ## Step 5: Start the Application
 

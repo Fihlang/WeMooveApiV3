@@ -16,21 +16,41 @@ This application revolutionizes furniture transport with:
 
 The project is organized into two main components:
 
-### Backend API (.NET Core)
+### Backend API (Node.js)
 
 - RESTful API endpoints for all application functions
 - WebSocket implementation for real-time updates
-- Entity Framework Core for data access
+- PostgreSQL database with Drizzle ORM
 - JWT authentication and role-based security
-- Containerized MS SQL Server database
+- Containerized deployment with Docker
 
-### Frontend (Angular)
+### Frontend (React)
 
 - Modern, responsive design with gradient color schemes
 - Real-time delivery tracking with interactive maps
 - WebSocket integration for live updates
 - Comprehensive customer and driver dashboards
-- Angular Material UI components
+- Tailwind CSS for styling
+
+## Environment Configuration
+
+This application uses environment variables for configuration, making it easy to deploy across different environments:
+
+1. Copy `.env.example` to `.env` for local development:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file with your specific settings:
+   ```
+   NODE_ENV=development
+   DATABASE_URL=postgres://postgres:postgres@localhost:5432/furniture_delivery
+   PORT=5000
+   ```
+
+3. For production deployment, configure environment variables according to the `ENV_GUIDE.md` documentation.
+
+For more detailed environment configuration, refer to the `ENV_GUIDE.md` file.
 
 ## Deployment Options
 
@@ -74,20 +94,20 @@ For separate backend and frontend setup:
 ## System Requirements
 
 - **For Backend**:
-  - .NET SDK 6.0 or higher
-  - Docker and Docker Compose (for MS SQL Server)
+  - Node.js 20 or higher
+  - Docker and Docker Compose (for PostgreSQL)
   - 2GB RAM, 1GB disk space
 
 - **For Frontend**:
-  - Node.js 14 or higher
+  - Node.js 20 or higher
   - npm
-  - Angular CLI
   - 1GB RAM, 500MB disk space
 
 - **For Production Deployment**:
   - 4GB RAM recommended
   - 10GB disk space
   - Internet connectivity for map services
+  - DigitalOcean Droplet (Standard plan recommended)
 
 ## License
 
