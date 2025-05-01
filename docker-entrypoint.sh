@@ -1,26 +1,43 @@
-#!/bin/bash
-
+#!/bin/sh
 set -e
 
-# Function to check if SQL Server is ready
-function wait_for_sql_server() {
-  echo "Waiting for SQL Server to start..."
+# Function to wait for PostgreSQL to be ready
+wait_for_postgres() {
+  echo "Waiting for PostgreSQL to be ready..."
   
-  until /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P $SA_PASSWORD -Q "SELECT 1" &> /dev/null; do
-    echo "SQL Server is not ready yet - sleeping for 3 seconds"
-    sleep 3
+  # Define connection variables from environment
+  PG_HOST=$(echo $DATABASE_URL | sed -n 's/.*@\([^:]*\).*/\1/p')
+  PG_PORT=$(echo $DATABASE_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+  
+  # Default to standard Postgres port if not found
+  if [ -z "$PG_PORT" ]; then
+    PG_PORT=5432
+  fi
+  
+  # Wait for PostgreSQL to be available
+  until nc -z $PG_HOST $PG_PORT; do
+    echo "PostgreSQL is unavailable - sleeping"
+    sleep 1
   done
   
-  echo "SQL Server is up and running!"
+  echo "PostgreSQL is up - continuing"
 }
 
-# Wait for SQL Server to be ready
-wait_for_sql_server
+# If a command was passed to the container, execute it
+if [ "${1#-}" != "$1" ]; then
+  set -- node "$@"
+fi
 
-# Initialize and migrate the database
-echo "Running database migrations..."
-dotnet FurnitureDelivery.API.dll --migrate
+# If we're running the start command and using a database
+if [ "$1" = "npm" ] && [ "$2" = "start" ] && [[ $DATABASE_URL == *"postgres"* ]]; then
+  wait_for_postgres
+fi
 
-# Start the application
-echo "Starting the application..."
-exec dotnet FurnitureDelivery.API.dll
+# Run database migrations if needed
+if [ "$NODE_ENV" = "production" ] && [ -f "./node_modules/.bin/drizzle-kit" ] && [[ $DATABASE_URL == *"postgres"* ]]; then
+  echo "Running database migrations..."
+  ./node_modules/.bin/drizzle-kit push:pg
+fi
+
+# Execute the passed command
+exec "$@"

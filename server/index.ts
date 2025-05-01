@@ -1,4 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
+import dotenv from "dotenv";
+import path from "path";
+
+// Load environment variables from .env file
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
 // import { registerRoutes } from "./routes"; // Original routes
 import { registerFurnitureRoutes } from "./furniture-routes"; // New Furniture Delivery routes
 import { registerDeliveryRoutes } from "./delivery-routes"; // New Delivery API
@@ -71,15 +77,16 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Get port from environment variable or use 5000 as fallback
+  // this serves both the API and the client
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+  const host = process.env.HOST || '0.0.0.0';
+  
   server.listen({
     port,
-    host: "0.0.0.0",
+    host,
     reusePort: true,
   }, () => {
-    log(`server running at http://0.0.0.0:${port}/`);
+    log(`Server running in ${process.env.NODE_ENV} mode at http://${host}:${port}/`);
   });
 })();

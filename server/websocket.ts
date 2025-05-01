@@ -22,9 +22,11 @@ class WebSocketService {
   private clients: Set<WebSocketConnection>;
 
   constructor(server: Server) {
-    this.wss = new WebSocketServer({ server, path: '/ws' });
+    const wsPath = process.env.WS_PATH || '/ws';
+    this.wss = new WebSocketServer({ server, path: wsPath });
     this.clients = new Set();
     this.initialize();
+    console.log(`WebSocket server initialized with path: ${wsPath}`);
   }
 
   private initialize() {
