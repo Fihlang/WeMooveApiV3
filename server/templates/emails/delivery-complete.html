@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Completed - We'd Love Your Feedback</title>
+    <style>
+        /* Reset styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+        }
+        
+        /* Container styles */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        
+        /* Header styles */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+            color: white;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .header img {
+            max-width: 180px;
+            height: auto;
+        }
+        
+        /* Content styles */
+        .content {
+            padding: 20px;
+            background-color: #ffffff;
+            border-left: 1px solid #eeeeee;
+            border-right: 1px solid #eeeeee;
+        }
+        
+        /* Footer styles */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #666666;
+            background-color: #f9f9f9;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #eeeeee;
+        }
+        
+        /* Button styles */
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        
+        /* Utility classes */
+        .text-center {
+            text-align: center;
+        }
+        
+        .mt-20 {
+            margin-top: 20px;
+        }
+        
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+        
+        /* Completion box */
+        .completion-box {
+            background-color: #f0fff0;
+            border: 1px solid #99e699;
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        /* Star rating */
+        .star-rating {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .star-rating a {
+            display: inline-block;
+            margin: 0 5px;
+            font-size: 30px;
+            color: #FFD700;
+            text-decoration: none;
+        }
+        
+        /* Rating buttons */
+        .rating-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 25px 0;
+        }
+        
+        .rating-button {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #dddddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333333;
+        }
+        
+        .rating-button:hover {
+            border-color: #663399;
+            background-color: #f0f0ff;
+        }
+        
+        /* Order summary */
+        .order-summary {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        /* Responsive styles */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            .content, .header, .footer {
+                padding: 15px;
+            }
+            
+            .rating-buttons {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Furniture Delivery</h1>
+            <!-- Logo can be added here -->
+            <!-- <img src="{{logoUrl}}" alt="Furniture Delivery Logo"> -->
+        </div>
+        
+        <div class="content">
+            <div class="completion-box">
+                <h2>Your Delivery is Complete!</h2>
+                <p>Your furniture has been successfully delivered. We hope everything arrived in perfect condition and the delivery experience met your expectations.</p>
+            </div>
+            
+            <p>Hello {{customerName}},</p>
+            
+            <p>Thank you for choosing Furniture Delivery. Your order (ID: {{deliveryId}}) was delivered on {{deliveryDate}} at {{deliveryTime}}.</p>
+            
+            <div class="order-summary">
+                <h3>Delivery Summary</h3>
+                <p><strong>Delivery Address:</strong> {{deliveryAddress}}</p>
+                <p><strong>Items Delivered:</strong> {{itemCount}} items</p>
+                <p><strong>Driver:</strong> {{driverName}}</p>
+            </div>
+            
+            <h3 class="text-center">How was your delivery experience?</h3>
+            
+            <div class="rating-buttons">
+                <a href="{{ratingUrl}}1" class="rating-button">1</a>
+                <a href="{{ratingUrl}}2" class="rating-button">2</a>
+                <a href="{{ratingUrl}}3" class="rating-button">3</a>
+                <a href="{{ratingUrl}}4" class="rating-button">4</a>
+                <a href="{{ratingUrl}}5" class="rating-button">5</a>
+            </div>
+            
+            <p class="text-center">1 = Poor, 5 = Excellent</p>
+            
+            <div class="text-center">
+                <a href="{{feedbackUrl}}" class="button">Leave Detailed Feedback</a>
+            </div>
+            
+            <p>Your feedback helps us improve our service and recognize excellent performance from our delivery team. It only takes a minute to rate your experience, and it means a lot to us.</p>
+            
+            <p>If there were any issues with your delivery that require our attention, please respond to this email or contact our customer service team at <a href="mailto:support@furnituredelivery.co.za">support@furnituredelivery.co.za</a> or call us at <a href="tel:+27123456789">+27 12 345 6789</a>.</p>
+            
+            <p>We value your business and hope to serve you again in the future!</p>
+            
+            <p>Best regards,<br>The Furniture Delivery Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>© {{year}} Furniture Delivery. All rights reserved.</p>
+            <p>123 Delivery Street, Cape Town, South Africa</p>
+            <p>
+                <a href="{{privacyPolicyUrl}}">Privacy Policy</a> | 
+                <a href="{{termsUrl}}">Terms of Service</a> | 
+                <a href="{{unsubscribeUrl}}">Unsubscribe</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
