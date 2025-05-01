@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Delivery is Confirmed!</title>
+    <style>
+        /* Reset styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+        }
+        
+        /* Container styles */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        
+        /* Header styles */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+            color: white;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .header img {
+            max-width: 180px;
+            height: auto;
+        }
+        
+        /* Content styles */
+        .content {
+            padding: 20px;
+            background-color: #ffffff;
+            border-left: 1px solid #eeeeee;
+            border-right: 1px solid #eeeeee;
+        }
+        
+        /* Footer styles */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #666666;
+            background-color: #f9f9f9;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #eeeeee;
+        }
+        
+        /* Button styles */
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        
+        /* Utility classes */
+        .text-center {
+            text-align: center;
+        }
+        
+        .mt-20 {
+            margin-top: 20px;
+        }
+        
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+        
+        /* Tracking info styles */
+        .tracking-info {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .tracking-info p {
+            margin: 5px 0;
+        }
+        
+        /* Order summary styles */
+        .order-summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .order-summary th, .order-summary td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .order-summary th {
+            background-color: #f2f2f2;
+        }
+        
+        .order-summary tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        /* Responsive styles */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            .content, .header, .footer {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Furniture Delivery</h1>
+            <!-- Logo can be added here -->
+            <!-- <img src="{{logoUrl}}" alt="Furniture Delivery Logo"> -->
+        </div>
+        
+        <div class="content">
+            <h2>Delivery Confirmation</h2>
+            
+            <p>Hello {{customerName}},</p>
+            
+            <p>Your furniture delivery has been confirmed! Thank you for choosing our service. Below are the details of your delivery:</p>
+            
+            <div class="tracking-info">
+                <p><strong>Delivery ID:</strong> {{deliveryId}}</p>
+                <p><strong>Scheduled Date:</strong> {{scheduledDate}}</p>
+                <p><strong>Time Window:</strong> {{timeWindow}}</p>
+                <p><strong>Pickup Address:</strong> {{pickupAddress}}</p>
+                <p><strong>Delivery Address:</strong> {{deliveryAddress}}</p>
+                <p><strong>Total Amount:</strong> {{totalAmount}}</p>
+                <p><strong>Payment Status:</strong> {{paymentStatus}}</p>
+            </div>
+            
+            <h3>Items Being Delivered</h3>
+            
+            <table class="order-summary">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Special Handling</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each items}}
+                    <tr>
+                        <td>{{name}}</td>
+                        <td>{{quantity}}</td>
+                        <td>{{specialHandling}}</td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+            
+            <div class="text-center">
+                <a href="{{trackingUrl}}" class="button">Track Your Delivery</a>
+            </div>
+            
+            <p>Please be available at the delivery address during the scheduled time window. If you need to make any changes to your delivery, please contact us at least 24 hours before the scheduled date.</p>
+            
+            <p>If you have any questions or concerns, feel free to contact our customer service team at <a href="mailto:support@furnituredelivery.co.za">support@furnituredelivery.co.za</a> or call us at <a href="tel:+27123456789">+27 12 345 6789</a>.</p>
+            
+            <p>Thank you for choosing Furniture Delivery!</p>
+            
+            <p>Best regards,<br>The Furniture Delivery Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>© {{year}} Furniture Delivery. All rights reserved.</p>
+            <p>123 Delivery Street, Cape Town, South Africa</p>
+            <p>
+                <a href="{{privacyPolicyUrl}}">Privacy Policy</a> | 
+                <a href="{{termsUrl}}">Terms of Service</a> | 
+                <a href="{{unsubscribeUrl}}">Unsubscribe</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Status Update</title>
+    <style>
+        /* Reset styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+        }
+        
+        /* Container styles */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        
+        /* Header styles */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+            color: white;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .header img {
+            max-width: 180px;
+            height: auto;
+        }
+        
+        /* Content styles */
+        .content {
+            padding: 20px;
+            background-color: #ffffff;
+            border-left: 1px solid #eeeeee;
+            border-right: 1px solid #eeeeee;
+        }
+        
+        /* Footer styles */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #666666;
+            background-color: #f9f9f9;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #eeeeee;
+        }
+        
+        /* Button styles */
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        
+        /* Utility classes */
+        .text-center {
+            text-align: center;
+        }
+        
+        .mt-20 {
+            margin-top: 20px;
+        }
+        
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+        
+        /* Status section */
+        .status-section {
+            border-left: 4px solid #663399;
+            padding-left: 15px;
+            margin: 25px 0;
+        }
+        
+        /* Status indicator */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin: 25px 0;
+        }
+        
+        .status-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .status-circle.confirmed {
+            background-color: #5B72FF;
+        }
+        
+        .status-circle.processing {
+            background-color: #FFA500;
+        }
+        
+        .status-circle.driver-assigned {
+            background-color: #32CD32;
+        }
+        
+        .status-circle.in-transit {
+            background-color: #1E90FF;
+        }
+        
+        .status-circle.delivered {
+            background-color: #008000;
+        }
+        
+        /* Status line */
+        .status-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px 0;
+            position: relative;
+        }
+        
+        .status-line::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #dddddd;
+            z-index: 1;
+        }
+        
+        .status-step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #dddddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .status-step.active {
+            background: linear-gradient(135deg, #663399 0%, #5B72FF 100%);
+        }
+        
+        .status-step.completed {
+            background-color: #4CAF50;
+        }
+        
+        /* Map placeholder */
+        .map-placeholder {
+            width: 100%;
+            height: 200px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            border: 1px dashed #cccccc;
+        }
+        
+        /* Responsive styles */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            .content, .header, .footer {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Furniture Delivery</h1>
+            <!-- Logo can be added here -->
+            <!-- <img src="{{logoUrl}}" alt="Furniture Delivery Logo"> -->
+        </div>
+        
+        <div class="content">
+            <h2>Delivery Status Update</h2>
+            
+            <p>Hello {{customerName}},</p>
+            
+            <p>We're writing to inform you that your delivery (ID: {{deliveryId}}) status has been updated.</p>
+            
+            <div class="status-section">
+                <h3>Current Status: <span style="color: {{statusColor}};">{{statusName}}</span></h3>
+                <p>{{statusDescription}}</p>
+                <p><strong>Updated on:</strong> {{updateTime}}</p>
+            </div>
+            
+            <div class="status-line">
+                <div class="status-step {{#if step1Completed}}completed{{else if step1Active}}active{{/if}}">1</div>
+                <div class="status-step {{#if step2Completed}}completed{{else if step2Active}}active{{/if}}">2</div>
+                <div class="status-step {{#if step3Completed}}completed{{else if step3Active}}active{{/if}}">3</div>
+                <div class="status-step {{#if step4Completed}}completed{{else if step4Active}}active{{/if}}">4</div>
+                <div class="status-step {{#if step5Completed}}completed{{else if step5Active}}active{{/if}}">5</div>
+            </div>
+            
+            <div class="text-center">
+                <p class="mb-20">Confirmed → Processing → Driver Assigned → In Transit → Delivered</p>
+            </div>
+            
+            {{#if driverAssigned}}
+            <div class="driver-info">
+                <h3>Driver Information</h3>
+                <p><strong>Driver:</strong> {{driverName}}</p>
+                <p><strong>Vehicle:</strong> {{vehicleType}} - {{vehicleColor}} {{vehicleMake}} {{vehicleModel}}</p>
+                <p><strong>License Plate:</strong> {{licensePlate}}</p>
+                <p><strong>Contact:</strong> {{driverPhone}}</p>
+            </div>
+            {{/if}}
+            
+            {{#if inTransit}}
+            <h3>Track Your Delivery</h3>
+            <p>Your driver is currently en route to deliver your items. You can track the delivery in real-time by clicking the button below.</p>
+            
+            <div class="map-placeholder">
+                <p>Live tracking map will appear in the app</p>
+            </div>
+            {{/if}}
+            
+            <div class="text-center">
+                <a href="{{trackingUrl}}" class="button">Track Your Delivery</a>
+            </div>
+            
+            <p>Estimated delivery time: <strong>{{estimatedDeliveryTime}}</strong></p>
+            
+            <p>If you have any questions or need to make changes to your delivery, please contact our customer service team at <a href="mailto:support@furnituredelivery.co.za">support@furnituredelivery.co.za</a> or call us at <a href="tel:+27123456789">+27 12 345 6789</a>.</p>
+            
+            <p>Thank you for choosing Furniture Delivery!</p>
+            
+            <p>Best regards,<br>The Furniture Delivery Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>© {{year}} Furniture Delivery. All rights reserved.</p>
+            <p>123 Delivery Street, Cape Town, South Africa</p>
+            <p>
+                <a href="{{privacyPolicyUrl}}">Privacy Policy</a> | 
+                <a href="{{termsUrl}}">Terms of Service</a> | 
+                <a href="{{unsubscribeUrl}}">Unsubscribe</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
