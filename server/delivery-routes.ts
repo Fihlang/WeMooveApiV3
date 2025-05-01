@@ -475,21 +475,69 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
               // Clean status name for display
               const cleanStatusName = status.replace(/_/g, ' ').toUpperCase();
               
-              // Send the status update email
-              sendDeliveryStatusEmail(
-                customer.email,
-                `${customer.firstName} ${customer.lastName}`,
-                deliveryId.toString(),
-                cleanStatusName,
-                statusMessage,
-                updateTime,
-                trackingUrl,
-                statusColor,
-                estimatedDeliveryTime,
-                driverInfo
-              ).catch(emailError => {
-                console.error('Error sending delivery status email:', emailError);
-              });
+              // For completed deliveries, send completion email instead of status update
+              if (status === 'completed') {
+                // Get driver name if available
+                let driverName = "Your delivery driver";
+                if (deliveryWithDetails.driver && deliveryWithDetails.driver.user) {
+                  driverName = `${deliveryWithDetails.driver.user.firstName} ${deliveryWithDetails.driver.user.lastName}`;
+                }
+                
+                // Count delivery items
+                const items = await deliveryStorage.getDeliveryItemsByDeliveryId(deliveryId);
+                const itemCount = items.length || 1;
+                
+                // Format delivery date and time
+                const now = new Date();
+                const deliveryDate = now.toLocaleDateString('en-ZA', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                });
+                
+                const deliveryTime = now.toLocaleTimeString('en-ZA', {
+                  hour: 'numeric',
+                  minute: 'numeric',
+                  hour12: true
+                });
+                
+                // Generate URLs for feedback
+                const ratingUrl = `${baseUrl}/customer/deliveries/${deliveryId}/review`;
+                const feedbackUrl = `${baseUrl}/customer/deliveries/${deliveryId}/feedback`;
+                
+                // Send completion email
+                sendDeliveryCompleteEmail(
+                  customer.email,
+                  `${customer.firstName} ${customer.lastName}`,
+                  deliveryId.toString(),
+                  deliveryDate,
+                  deliveryTime,
+                  dropoffAddressFormatted,
+                  itemCount,
+                  driverName,
+                  ratingUrl,
+                  feedbackUrl
+                ).catch(emailError => {
+                  console.error('Error sending delivery completion email:', emailError);
+                });
+              } else {
+                // Send the status update email for non-completed statuses
+                sendDeliveryStatusEmail(
+                  customer.email,
+                  `${customer.firstName} ${customer.lastName}`,
+                  deliveryId.toString(),
+                  cleanStatusName,
+                  statusMessage,
+                  updateTime,
+                  trackingUrl,
+                  statusColor,
+                  estimatedDeliveryTime,
+                  driverInfo
+                ).catch(emailError => {
+                  console.error('Error sending delivery status email:', emailError);
+                });
+              }
             }
           }
         } catch (emailError) {
@@ -693,14 +741,90 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
       // Notify relevant parties about the payment status update
       const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(payment.deliveryId);
       if (deliveryWithDetails) {
-        // Notify the customer
+        const customer = deliveryWithDetails.customer;
+        
+        // Create in-app notification for the customer
         await deliveryStorage.createNotification({
-          userId: deliveryWithDetails.customer.id,
+          userId: customer.id,
           title: 'Payment Update',
           message: `Your payment for delivery #${payment.deliveryId} is now ${status}.`,
           type: 'payment_update',
           referenceId: payment.deliveryId
         });
+        
+        // Send payment confirmation email to customer if the payment was successful
+        if (status === 'paid' && customer && customer.email) {
+          try {
+            // Get the delivery details
+            const dropoffAddress = deliveryWithDetails.dropoffAddress;
+            if (dropoffAddress) {
+              // Format address for email
+              const deliveryAddressFormatted = `${dropoffAddress.addressLine1}, ${dropoffAddress.city}, ${dropoffAddress.province}, ${dropoffAddress.zipCode}`;
+              
+              // Create tracking URL
+              const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+              const trackingUrl = `${baseUrl}/customer/deliveries/${payment.deliveryId}/track`;
+              
+              // Get all delivery items
+              const items = await deliveryStorage.getDeliveryItemsByDeliveryId(payment.deliveryId);
+              const formattedItems = await Promise.all(items.map(async (item) => {
+                const furniture = await deliveryStorage.getFurniture(item.furnitureId);
+                return {
+                  name: furniture ? furniture.name : `Item #${item.id}`,
+                  quantity: item.quantity || 1,
+                  specialHandling: item.notes || 'Standard handling'
+                };
+              }));
+              
+              // If there are no items added yet, add a placeholder item
+              if (formattedItems.length === 0) {
+                formattedItems.push({
+                  name: deliveryWithDetails.requiredVehicleType === 'truck' ? 'Furniture delivery' : 'Package delivery',
+                  quantity: 1,
+                  specialHandling: 'Standard handling'
+                });
+              }
+              
+              // Format scheduled date
+              const scheduledDate = deliveryWithDetails.scheduledPickupTime 
+                ? new Date(deliveryWithDetails.scheduledPickupTime).toLocaleDateString('en-ZA', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
+                : 'To be scheduled';
+              
+              // Format amount
+              const formattedAmount = `R ${parseFloat(payment.amount).toFixed(2)}`;
+              
+              // Prepare pickup address
+              const pickupAddress = deliveryWithDetails.pickupAddress;
+              const pickupAddressFormatted = pickupAddress 
+                ? `${pickupAddress.addressLine1}, ${pickupAddress.city}, ${pickupAddress.province}, ${pickupAddress.zipCode}`
+                : 'Not available';
+              
+              // Send a payment confirmation email
+              sendDeliveryConfirmationEmail(
+                customer.email,
+                `${customer.firstName} ${customer.lastName}`,
+                payment.deliveryId.toString(),
+                scheduledDate,
+                'Flexible', // Time window
+                pickupAddressFormatted,
+                deliveryAddressFormatted,
+                formattedAmount,
+                'PAID', // Payment status
+                formattedItems,
+                trackingUrl
+              ).catch(emailError => {
+                console.error('Error sending payment confirmation email:', emailError);
+              });
+            }
+          } catch (emailError) {
+            console.error('Error preparing payment confirmation email:', emailError);
+          }
+        }
         
         // If payment is successful, notify the driver
         if (status === 'paid' && deliveryWithDetails.driver) {
