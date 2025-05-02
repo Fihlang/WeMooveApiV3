@@ -355,6 +355,7 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
   });
 
   // Delivery Routes
+  // Generic delivery creation endpoint
   app.post('/api/deliveries', async (req: Request, res: Response) => {
     try {
       // Validate delivery data
@@ -394,76 +395,7 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
       
       // Send delivery confirmation email asynchronously
       try {
-        // Get customer and delivery details needed for the email
-        const customer = await deliveryStorage.getCustomerByUserId(delivery.customerId);
-        if (customer) {
-          const user = await deliveryStorage.getUser(customer.userId);
-          const pickupAddress = await deliveryStorage.getAddress(delivery.pickupAddressId);
-          const deliveryAddress = await deliveryStorage.getAddress(delivery.dropoffAddressId);
-          
-          if (user && pickupAddress && deliveryAddress) {
-            const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
-            const trackingUrl = `${baseUrl}/customer/deliveries/${delivery.id}/track`;
-            
-            // Format addresses
-            const pickupAddressFormatted = `${pickupAddress.addressLine1}, ${pickupAddress.city}, ${pickupAddress.province}, ${pickupAddress.zipCode}`;
-            const deliveryAddressFormatted = `${deliveryAddress.addressLine1}, ${deliveryAddress.city}, ${deliveryAddress.province}, ${deliveryAddress.zipCode}`;
-            
-            // Format scheduled date
-            const scheduledDate = delivery.scheduledPickupTime 
-              ? new Date(delivery.scheduledPickupTime).toLocaleDateString('en-ZA', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })
-              : 'To be scheduled';
-            
-            // Format time window
-            const timeWindow = 'Flexible'; // Since we don't have explicit time window fields
-            
-            // Get delivery items if any
-            const deliveryItems = await deliveryStorage.getDeliveryItemsByDeliveryId(delivery.id);
-            const items = await Promise.all(deliveryItems.map(async (item) => {
-              const furniture = await deliveryStorage.getFurniture(item.furnitureId);
-              return {
-                name: furniture ? furniture.name : `Item #${item.id}`,
-                quantity: item.quantity || 1,
-                specialHandling: item.notes || 'Standard handling'
-              };
-            }));
-            
-            // If there are no items added yet, add a placeholder item based on delivery type
-            if (items.length === 0) {
-              items.push({
-                name: delivery.requiredVehicleType === 'truck' ? 'Furniture delivery' : 'Package delivery',
-                quantity: 1,
-                specialHandling: 'Standard handling'
-              });
-            }
-            
-            // Format payment status
-            const payment = await deliveryStorage.getPaymentByDeliveryId(delivery.id);
-            const paymentStatus = payment ? payment.status : 'pending';
-            
-            // Send the confirmation email
-            sendDeliveryConfirmationEmail(
-              user.email,
-              `${user.firstName} ${user.lastName}`,
-              delivery.id.toString(),
-              scheduledDate,
-              timeWindow,
-              pickupAddressFormatted,
-              deliveryAddressFormatted,
-              `R ${parseFloat(delivery.price).toFixed(2)}`,
-              paymentStatus,
-              items,
-              trackingUrl
-            ).catch(emailError => {
-              console.error('Error sending delivery confirmation email:', emailError);
-            });
-          }
-        }
+        await sendDeliveryConfirmationEmailWithDetails(delivery.id);
       } catch (emailError) {
         console.error('Error sending delivery confirmation email:', emailError);
       }
@@ -472,6 +404,217 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating delivery:', error);
       res.status(500).json({ error: 'Failed to create delivery' });
+    }
+  });
+  
+  // Specialized endpoint for furniture deliveries
+  app.post('/api/deliveries/furniture', async (req: Request, res: Response) => {
+    try {
+      // Validate basic delivery data
+      const validation = validateRequest(req, insertDeliverySchema);
+      if (!validation.valid) {
+        return res.status(400).json({ errors: validation.errors });
+      }
+      
+      // Ensure the vehicle type is appropriate for furniture
+      if (validation.data.requiredVehicleType !== 'truck' && validation.data.requiredVehicleType !== 'van') {
+        return res.status(400).json({ 
+          error: 'Furniture deliveries require a truck or van vehicle type' 
+        });
+      }
+      
+      // Check if furniture items are provided
+      if (!req.body.furnitureItems || !Array.isArray(req.body.furnitureItems) || req.body.furnitureItems.length === 0) {
+        return res.status(400).json({ 
+          error: 'Furniture deliveries require at least one furniture item' 
+        });
+      }
+      
+      // Create the delivery
+      const delivery = await deliveryStorage.createDelivery(validation.data);
+      
+      // Add furniture items as packages
+      for (const item of req.body.furnitureItems) {
+        await deliveryStorage.createPackage({
+          deliveryId: delivery.id,
+          packageType: 'furniture',
+          name: item.name || 'Furniture item',
+          description: item.description || '',
+          weight: item.weight,
+          length: item.length,
+          width: item.width,
+          height: item.height,
+          isFragile: item.isFragile || false,
+          requiresSpecialHandling: item.requiresAssembly || false,
+          photoUrl: item.photoUrl
+        });
+      }
+      
+      // Create initial payment record
+      await deliveryStorage.createPayment({
+        deliveryId: delivery.id,
+        amount: delivery.price,
+        status: 'pending',
+        method: req.body.paymentMethod || 'cash'
+      });
+      
+      // Find suitable drivers specifically for furniture delivery
+      if (req.body.findDriver === true && 
+          req.body.pickupCoordinates && 
+          req.body.pickupCoordinates.latitude && 
+          req.body.pickupCoordinates.longitude) {
+        
+        // Get the most appropriate drivers for this furniture delivery
+        const suitableDrivers = await deliveryStorage.getAvailableDriversForDelivery(
+          parseFloat(req.body.pickupCoordinates.latitude),
+          parseFloat(req.body.pickupCoordinates.longitude),
+          validation.data.requiredVehicleType,
+          false // Not a small parcel
+        );
+        
+        // Notify these drivers via WebSocket
+        for (const driver of suitableDrivers) {
+          wsService.broadcastToUser(driver.userId, {
+            type: 'furniture_delivery_request',
+            payload: {
+              deliveryId: delivery.id,
+              pickupLocation: {
+                latitude: req.body.pickupCoordinates.latitude,
+                longitude: req.body.pickupCoordinates.longitude,
+                address: await deliveryStorage.getAddress(delivery.pickupAddressId)
+              },
+              dropoffLocation: {
+                address: await deliveryStorage.getAddress(delivery.dropoffAddressId)
+              },
+              itemCount: req.body.furnitureItems.length,
+              price: delivery.price,
+              scheduledPickupTime: delivery.scheduledPickupTime
+            }
+          });
+        }
+        
+        // Send back the suitable driver count
+        delivery.suitableDriverCount = suitableDrivers.length;
+      }
+      
+      // Send delivery confirmation email
+      try {
+        await sendDeliveryConfirmationEmailWithDetails(delivery.id);
+      } catch (emailError) {
+        console.error('Error sending furniture delivery confirmation email:', emailError);
+      }
+      
+      res.status(201).json(delivery);
+    } catch (error) {
+      console.error('Error creating furniture delivery:', error);
+      res.status(500).json({ error: 'Failed to create furniture delivery' });
+    }
+  });
+  
+  // Specialized endpoint for small parcel deliveries (motorbike deliveries)
+  app.post('/api/deliveries/parcel', async (req: Request, res: Response) => {
+    try {
+      // Validate basic delivery data
+      const validation = validateRequest(req, insertDeliverySchema);
+      if (!validation.valid) {
+        return res.status(400).json({ errors: validation.errors });
+      }
+      
+      // Ensure the vehicle type is appropriate for small parcels
+      if (validation.data.requiredVehicleType !== 'motorbike') {
+        return res.status(400).json({ 
+          error: 'Small parcel deliveries require a motorbike vehicle type' 
+        });
+      }
+      
+      // Check if parcel details are provided
+      if (!req.body.parcel) {
+        return res.status(400).json({ 
+          error: 'Parcel deliveries require parcel details' 
+        });
+      }
+      
+      // Create the delivery
+      const delivery = await deliveryStorage.createDelivery(validation.data);
+      
+      // Add parcel as a package
+      await deliveryStorage.createPackage({
+        deliveryId: delivery.id,
+        packageType: req.body.parcel.type || 'parcel',
+        name: req.body.parcel.name || 'Small parcel',
+        description: req.body.parcel.description || '',
+        weight: req.body.parcel.weight,
+        length: req.body.parcel.length,
+        width: req.body.parcel.width,
+        height: req.body.parcel.height,
+        isFragile: req.body.parcel.isFragile || false,
+        requiresSpecialHandling: req.body.parcel.requiresSpecialHandling || false,
+        photoUrl: req.body.parcel.photoUrl
+      });
+      
+      // Create initial payment record
+      await deliveryStorage.createPayment({
+        deliveryId: delivery.id,
+        amount: delivery.price,
+        status: 'pending',
+        method: req.body.paymentMethod || 'cash'
+      });
+      
+      // Find suitable motorbike drivers for quick delivery
+      if (req.body.findDriver === true && 
+          req.body.pickupCoordinates && 
+          req.body.pickupCoordinates.latitude && 
+          req.body.pickupCoordinates.longitude) {
+        
+        // Get the closest motorbike drivers
+        const suitableDrivers = await deliveryStorage.getAvailableDriversForDelivery(
+          parseFloat(req.body.pickupCoordinates.latitude),
+          parseFloat(req.body.pickupCoordinates.longitude),
+          'motorbike',
+          true // Is a small parcel
+        );
+        
+        // Notify these drivers via WebSocket - use a higher priority for parcels (quick delivery)
+        for (const driver of suitableDrivers) {
+          wsService.broadcastToUser(driver.userId, {
+            type: 'parcel_delivery_request',
+            priority: 'high',
+            payload: {
+              deliveryId: delivery.id,
+              pickupLocation: {
+                latitude: req.body.pickupCoordinates.latitude,
+                longitude: req.body.pickupCoordinates.longitude,
+                address: await deliveryStorage.getAddress(delivery.pickupAddressId)
+              },
+              dropoffLocation: {
+                address: await deliveryStorage.getAddress(delivery.dropoffAddressId)
+              },
+              parcelDetails: {
+                type: req.body.parcel.type || 'parcel',
+                name: req.body.parcel.name || 'Small parcel',
+                weight: req.body.parcel.weight
+              },
+              price: delivery.price,
+              scheduledPickupTime: delivery.scheduledPickupTime
+            }
+          });
+        }
+        
+        // Send back the suitable driver count
+        delivery.suitableDriverCount = suitableDrivers.length;
+      }
+      
+      // Send delivery confirmation email
+      try {
+        await sendDeliveryConfirmationEmailWithDetails(delivery.id);
+      } catch (emailError) {
+        console.error('Error sending parcel delivery confirmation email:', emailError);
+      }
+      
+      res.status(201).json(delivery);
+    } catch (error) {
+      console.error('Error creating parcel delivery:', error);
+      res.status(500).json({ error: 'Failed to create parcel delivery' });
     }
   });
 
@@ -1163,6 +1306,95 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
 }
 
 // Helper function to get status messages
+async function sendDeliveryConfirmationEmailWithDetails(deliveryId: number): Promise<void> {
+  // Get delivery details needed for the email
+  const delivery = await deliveryStorage.getDeliveryWithItems(deliveryId);
+  if (!delivery) return;
+  
+  const customer = await deliveryStorage.getCustomerByUserId(delivery.customerId);
+  if (!customer) return;
+  
+  const user = await deliveryStorage.getUser(customer.userId);
+  const pickupAddress = await deliveryStorage.getAddress(delivery.pickupAddressId);
+  const deliveryAddress = await deliveryStorage.getAddress(delivery.dropoffAddressId);
+  
+  if (!user || !pickupAddress || !deliveryAddress) return;
+  
+  const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+  const trackingUrl = `${baseUrl}/customer/deliveries/${delivery.id}/track`;
+  
+  // Format addresses
+  const pickupAddressFormatted = `${pickupAddress.addressLine1}, ${pickupAddress.city}, ${pickupAddress.province}, ${pickupAddress.zipCode}`;
+  const deliveryAddressFormatted = `${deliveryAddress.addressLine1}, ${deliveryAddress.city}, ${deliveryAddress.province}, ${deliveryAddress.zipCode}`;
+  
+  // Format scheduled date
+  const scheduledDate = delivery.scheduledPickupTime 
+    ? new Date(delivery.scheduledPickupTime).toLocaleDateString('en-ZA', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : 'To be scheduled';
+  
+  // Format time window
+  const timeWindow = 'Flexible'; // Since we don't have explicit time window fields
+  
+  // Get delivery items/packages
+  let items = [];
+  
+  // Check for packages first (used for both furniture and parcel deliveries)
+  const packages = await deliveryStorage.getPackagesByDeliveryId(delivery.id);
+  if (packages.length > 0) {
+    items = packages.map(pkg => ({
+      name: pkg.name,
+      quantity: 1,
+      specialHandling: pkg.requiresSpecialHandling ? 'Special handling required' : 'Standard handling'
+    }));
+  } else {
+    // If no packages, check for delivery items (legacy furniture items)
+    const deliveryItems = await deliveryStorage.getDeliveryItemsByDeliveryId(delivery.id);
+    if (deliveryItems.length > 0) {
+      items = await Promise.all(deliveryItems.map(async (item) => {
+        const furniture = await deliveryStorage.getFurniture(item.furnitureId);
+        return {
+          name: furniture ? furniture.name : `Item #${item.id}`,
+          quantity: item.quantity || 1,
+          specialHandling: item.notes || 'Standard handling'
+        };
+      }));
+    }
+  }
+  
+  // If there are no items added yet, add a placeholder item based on delivery type
+  if (items.length === 0) {
+    items.push({
+      name: delivery.requiredVehicleType === 'motorbike' ? 'Package delivery' : 'Furniture delivery',
+      quantity: 1,
+      specialHandling: 'Standard handling'
+    });
+  }
+  
+  // Format payment status
+  const payment = await deliveryStorage.getPaymentByDeliveryId(delivery.id);
+  const paymentStatus = payment ? payment.status : 'pending';
+  
+  // Send the confirmation email
+  await sendDeliveryConfirmationEmail(
+    user.email,
+    `${user.firstName} ${user.lastName}`,
+    delivery.id.toString(),
+    scheduledDate,
+    timeWindow,
+    pickupAddressFormatted,
+    deliveryAddressFormatted,
+    `R ${parseFloat(delivery.price).toFixed(2)}`,
+    paymentStatus,
+    items,
+    trackingUrl
+  );
+}
+
 function getStatusMessage(status: string): string {
   switch (status) {
     case 'pending':

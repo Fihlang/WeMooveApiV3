@@ -506,8 +506,9 @@ export class DeliveryDatabaseStorage implements IDeliveryStorage {
       const driver = await this.getDriverByUserId(reviewData.revieweeId);
       if (driver) {
         const avgRating = await this.getAverageDriverRating(driver.id);
+        // Convert numeric rating to string for database storage
         await this.updateDriver(driver.id, { 
-          rating: avgRating, 
+          rating: avgRating.toString(), 
           ratingCount: driver.ratingCount + 1 
         });
       }
