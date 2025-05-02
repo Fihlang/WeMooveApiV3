@@ -46,14 +46,14 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <div className="flex items-center">
           <Link href="/">
-            <a className="flex items-center">
+            <div className="flex items-center cursor-pointer">
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl w-10 h-10 flex items-center justify-center mr-3 shadow-md">
                 <Truck className="text-white h-5 w-5" />
               </div>
               <h1 className="font-heading font-bold text-xl md:text-2xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
                 WeMove
               </h1>
-            </a>
+            </div>
           </Link>
         </div>
         
@@ -63,14 +63,14 @@ export default function Header() {
               {furnitureDeliveryNavItems.map(item => (
                 <li key={item.path}>
                   <Link href={item.path}>
-                    <a className={`font-medium transition-colors flex items-center px-4 py-2 rounded-full ${
+                    <div className={`font-medium transition-colors flex items-center px-4 py-2 rounded-full cursor-pointer ${
                       location === item.path 
                         ? 'bg-indigo-50 text-indigo-700' 
                         : 'hover:bg-gray-50 hover:text-indigo-600'
                     }`}>
                       {item.icon}
                       {item.name}
-                    </a>
+                    </div>
                   </Link>
                 </li>
               ))}
@@ -79,7 +79,7 @@ export default function Header() {
           
           {/* User Profile Link */}
           <Link href="/user/profile">
-            <a className="inline-flex items-center ml-4 bg-indigo-50 pl-2 pr-5 py-1.5 rounded-full hover:bg-indigo-100 transition-colors">
+            <div className="inline-flex items-center ml-4 bg-indigo-50 pl-2 pr-5 py-1.5 rounded-full hover:bg-indigo-100 transition-colors cursor-pointer">
               <div className="relative">
                 <div className="w-8 h-8 rounded-full border-2 border-indigo-500 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
                   <User className="h-4 w-4 text-indigo-700" />
@@ -87,7 +87,7 @@ export default function Header() {
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 border border-white"></div>
               </div>
               <span className="ml-2 font-medium text-indigo-800 text-sm">Jane Customer</span>
-            </a>
+            </div>
           </Link>
         </div>
         
