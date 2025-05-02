@@ -39,10 +39,26 @@ export class DeliveryService {
   }
   
   /**
-   * Create a new delivery
+   * Create a new delivery (generic method)
    */
   createDelivery(deliveryData: any): Observable<Delivery> {
     return this.http.post<Delivery>(`${this.apiUrl}/deliveries`, deliveryData);
+  }
+  
+  /**
+   * Create a new furniture delivery
+   * @param deliveryData The delivery data
+   */
+  createFurnitureDelivery(deliveryData: any): Observable<Delivery> {
+    return this.http.post<Delivery>(`${this.apiUrl}/deliveries/furniture`, deliveryData);
+  }
+  
+  /**
+   * Create a new parcel delivery
+   * @param deliveryData The delivery data
+   */
+  createParcelDelivery(deliveryData: any): Observable<Delivery> {
+    return this.http.post<Delivery>(`${this.apiUrl}/deliveries/parcel`, deliveryData);
   }
   
   /**
@@ -56,11 +72,31 @@ export class DeliveryService {
   
   /**
    * Get available drivers near a location
+   * @param latitude The latitude coordinates
+   * @param longitude The longitude coordinates
+   * @param radius Search radius in kilometers
+   * @param parcelDeliveryOnly Whether to only get drivers that support parcel delivery
+   * @param vehicleType Optional vehicle type filter
+   * @returns Observable of drivers matching the criteria
    */
-  getAvailableDrivers(latitude: number, longitude: number, radius: number = 10): Observable<DriverWithDetails[]> {
-    return this.http.get<DriverWithDetails[]>(
-      `${this.apiUrl}/drivers/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radius}`
-    );
+  getAvailableDrivers(
+    latitude: number, 
+    longitude: number, 
+    radius: number = 10, 
+    parcelDeliveryOnly: boolean = false,
+    vehicleType?: string
+  ): Observable<DriverWithDetails[]> {
+    let url = `${this.apiUrl}/drivers/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radius}`;
+    
+    if (parcelDeliveryOnly) {
+      url += '&parcelDeliveryOnly=true';
+    }
+    
+    if (vehicleType) {
+      url += `&vehicleType=${vehicleType}`;
+    }
+    
+    return this.http.get<DriverWithDetails[]>(url);
   }
   
   /**
