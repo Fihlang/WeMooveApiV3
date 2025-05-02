@@ -27,7 +27,7 @@ services:
       dockerfile: Dockerfile
     container_name: furniture_delivery_api
     ports:
-      - "5000:5000"
+      - "5001:5000"
     depends_on:
       postgres:
         condition: service_healthy
