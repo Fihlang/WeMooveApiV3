@@ -821,6 +821,182 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint for drivers to accept or reject delivery requests
+  app.post('/api/deliveries/:id/driver-response', async (req: Request, res: Response) => {
+    try {
+      const deliveryId = parseInt(req.params.id);
+      const { driverId, action, reason } = req.body;
+      
+      if (!driverId || !action) {
+        return res.status(400).json({ error: 'Driver ID and action are required' });
+      }
+      
+      if (action !== 'accept' && action !== 'reject') {
+        return res.status(400).json({ error: "Action must be 'accept' or 'reject'" });
+      }
+      
+      // Check if the delivery is still available
+      const delivery = await deliveryStorage.getDelivery(deliveryId);
+      if (!delivery) {
+        return res.status(404).json({ error: 'Delivery not found' });
+      }
+      
+      if (delivery.driverId && delivery.driverId !== driverId && action === 'accept') {
+        return res.status(409).json({ error: 'Delivery has already been assigned to another driver' });
+      }
+      
+      // Process the driver's response
+      if (action === 'accept') {
+        // If accepting, assign the driver to the delivery
+        const updatedDelivery = await deliveryStorage.assignDriverToDelivery(deliveryId, driverId);
+        
+        // Update driver status to busy
+        await deliveryStorage.updateDriver(driverId, {
+          isAvailable: false,
+          currentDeliveryId: deliveryId
+        });
+        
+        // Get the driver details
+        const driver = await deliveryStorage.getDriver(driverId);
+        if (driver) {
+          // Notify all clients subscribed to this delivery about the driver assignment
+          wsService.broadcastToDelivery(deliveryId, {
+            type: 'driver_assigned',
+            payload: {
+              deliveryId,
+              driverId,
+              driverName: driver.user?.firstName + ' ' + driver.user?.lastName,
+              timestamp: new Date().toISOString()
+            }
+          });
+          
+          // Create a notification for the customer
+          const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(deliveryId);
+          if (deliveryWithDetails) {
+            const customer = deliveryWithDetails.customer;
+            
+            // Create in-app notification
+            await deliveryStorage.createNotification({
+              userId: customer.id,
+              title: 'Driver Assigned',
+              message: `${driver.user?.firstName} ${driver.user?.lastName} has been assigned to your delivery.`,
+              type: 'delivery_update',
+              referenceId: deliveryId
+            });
+            
+            // Email notification code can be reused from the existing endpoint
+            try {
+              if (customer && customer.email) {
+                // Get addresses for the email
+                const pickupAddress = deliveryWithDetails.pickupAddress;
+                const dropoffAddress = deliveryWithDetails.dropoffAddress;
+                
+                if (pickupAddress && dropoffAddress) {
+                  // Format addresses
+                  const pickupAddressFormatted = `${pickupAddress.addressLine1}, ${pickupAddress.city}, ${pickupAddress.province}, ${pickupAddress.zipCode}`;
+                  const dropoffAddressFormatted = `${dropoffAddress.addressLine1}, ${dropoffAddress.city}, ${dropoffAddress.province}, ${dropoffAddress.zipCode}`;
+                  
+                  // Create tracking URL
+                  const baseUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+                  const trackingUrl = `${baseUrl}/customer/deliveries/${deliveryId}/track`;
+                  
+                  // Format scheduled date
+                  const scheduledDate = deliveryWithDetails.scheduledPickupTime 
+                    ? new Date(deliveryWithDetails.scheduledPickupTime).toLocaleDateString('en-ZA', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })
+                    : 'To be scheduled';
+                  
+                  // Format time window
+                  const timeWindow = 'Flexible'; // Since we don't have explicit time window fields
+                  
+                  // Get driver initials for profile circle
+                  const driverFirstName = driver.user?.firstName || '';
+                  const driverLastName = driver.user?.lastName || '';
+                  const driverInitials = (driverFirstName.charAt(0) + driverLastName.charAt(0)).toUpperCase();
+                  
+                  // Get driver rating info
+                  const rating = driver.rating || 0;
+                  const ratingCount = driver.ratingCount || 0;
+                  
+                  // Send the driver assignment email
+                  sendDriverAssignedEmail(
+                    customer.email,
+                    `${customer.firstName} ${customer.lastName}`,
+                    deliveryId.toString(),
+                    `${driverFirstName} ${driverLastName}`,
+                    driverInitials,
+                    driver.user?.phone || 'Not available',
+                    driver.vehicleType || 'Standard vehicle',
+                    driver.vehicleColor || 'Not specified',
+                    driver.vehicleMake || 'Not specified',
+                    driver.vehicleModel || 'Not specified',
+                    driver.licensePlate || 'Not available',
+                    scheduledDate,
+                    timeWindow,
+                    pickupAddressFormatted,
+                    dropoffAddressFormatted,
+                    trackingUrl,
+                    ratingCount,
+                    rating
+                  ).catch(emailError => {
+                    console.error('Error sending driver assignment email:', emailError);
+                  });
+                }
+              }
+            } catch (emailError) {
+              console.error('Error preparing driver assignment email:', emailError);
+            }
+          }
+        }
+        
+        res.json({ 
+          success: true, 
+          message: 'Delivery accepted and assigned',
+          delivery: updatedDelivery
+        });
+      } else {
+        // If rejecting, log the rejection reason and notify the customer
+        console.log(`Driver ${driverId} rejected delivery ${deliveryId}. Reason: ${reason || 'Not provided'}`);
+        
+        // Create a notification for the customer if this was a direct request
+        if (delivery.status === 'pending' && delivery.requestedDriverId === driverId) {
+          const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(deliveryId);
+          if (deliveryWithDetails && deliveryWithDetails.customer) {
+            // Create in-app notification
+            await deliveryStorage.createNotification({
+              userId: deliveryWithDetails.customer.id,
+              title: 'Delivery Request Declined',
+              message: `A driver has declined your delivery request. We're looking for another driver.`,
+              type: 'delivery_update',
+              referenceId: deliveryId
+            });
+          }
+        }
+        
+        // Let the customer know that a driver has rejected their request
+        wsService.broadcastToDelivery(deliveryId, {
+          type: 'driver_rejected',
+          payload: {
+            deliveryId,
+            timestamp: new Date().toISOString()
+          }
+        });
+        
+        res.json({ 
+          success: true, 
+          message: 'Delivery rejection recorded'
+        });
+      }
+    } catch (error) {
+      console.error('Error processing driver response:', error);
+      res.status(500).json({ error: 'Failed to process driver response' });
+    }
+  });
+
   app.put('/api/deliveries/:id/assign', async (req: Request, res: Response) => {
     try {
       const deliveryId = parseInt(req.params.id);
