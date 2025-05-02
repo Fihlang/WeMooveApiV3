@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using FurnitureDelivery.API.DTOs;
 
 namespace FurnitureDelivery.API.Services
 {
@@ -112,7 +113,7 @@ namespace FurnitureDelivery.API.Services
         /// </summary>
         /// <param name="message">The message to broadcast</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        Task BroadcastToDrivers(object message);
+        Task BroadcastToDrivers(WebSocketMessage message);
         
         /// <summary>
         /// Broadcasts a delivery status update to all connections tracking the delivery

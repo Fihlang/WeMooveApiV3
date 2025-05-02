@@ -412,7 +412,7 @@ namespace FurnitureDelivery.API.Services
             }
         }
         
-        public async Task BroadcastToDrivers(object message)
+        public async Task BroadcastToDrivers(WebSocketMessage message)
         {
             try
             {
@@ -430,11 +430,11 @@ namespace FurnitureDelivery.API.Services
                     }
                 }
                 
-                _logger.LogInformation($"Message broadcast to {drivers.Count} drivers");
+                _logger.LogInformation($"Message broadcast to {drivers.Count} drivers, type: {message.Type}");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error broadcasting message to drivers");
+                _logger.LogError(ex, $"Error broadcasting message to drivers, type: {message.Type}");
             }
         }
         
@@ -459,7 +459,8 @@ namespace FurnitureDelivery.API.Services
                 {
                     DeliveryId = deliveryId,
                     Status = status,
-                    UpdatedAt = DateTime.UtcNow
+                    UpdatedAt = DateTime.UtcNow,
+                    StatusDisplay = GetStatusDisplayName(status)
                 };
                 
                 // Send to connections tracking this delivery
