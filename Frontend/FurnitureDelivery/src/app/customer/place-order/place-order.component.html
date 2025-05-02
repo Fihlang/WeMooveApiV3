@@ -1,0 +1,370 @@
+<div class="place-order-container">
+  <div class="container">
+    <div class="row">
+      <div class="col-12">
+        <h1 class="text-center mb-4">Schedule a Delivery</h1>
+        
+        <!-- Step indicators -->
+        <div class="step-indicator mb-5">
+          <div class="steps">
+            <div class="step" [ngClass]="{'active': step >= 1, 'completed': step > 1}">
+              <div class="step-number">1</div>
+              <div class="step-title">Delivery Type</div>
+            </div>
+            <div class="step" [ngClass]="{'active': step >= 2, 'completed': step > 2}">
+              <div class="step-number">2</div>
+              <div class="step-title">Details</div>
+            </div>
+            <div class="step" [ngClass]="{'active': step >= 3}">
+              <div class="step-number">3</div>
+              <div class="step-title">Review & Payment</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Alert messages -->
+        <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+        <div *ngIf="success" class="alert alert-success">{{ success }}</div>
+        
+        <!-- Step 1: Delivery Type Selection -->
+        <div *ngIf="step === 1" class="step-content">
+          <div class="card">
+            <div class="card-header">
+              <h2>Select Delivery Type</h2>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="card delivery-type-card mb-3" 
+                      [ngClass]="{'selected': deliveryType === 'furniture'}"
+                      (click)="onDeliveryTypeChange('furniture')">
+                    <div class="card-body text-center">
+                      <i class="bi bi-truck display-1"></i>
+                      <h3>Furniture Delivery</h3>
+                      <p>Delivery of large items like furniture, appliances, etc.</p>
+                      <ul class="features-list">
+                        <li>Professional handling</li>
+                        <li>Loading & unloading assistance</li>
+                        <li>Suitable for large or heavy items</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card delivery-type-card mb-3" 
+                      [ngClass]="{'selected': deliveryType === 'parcel'}"
+                      (click)="onDeliveryTypeChange('parcel')">
+                    <div class="card-body text-center">
+                      <i class="bi bi-box-seam display-1"></i>
+                      <h3>Parcel Delivery</h3>
+                      <p>Fast delivery of small parcels and packages</p>
+                      <ul class="features-list">
+                        <li>Quick delivery with motorbikes</li>
+                        <li>Suitable for smaller items (up to 20kg)</li>
+                        <li>Cost-effective for single packages</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">
+              <button class="btn btn-primary float-end" (click)="nextStep()">Continue</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Step 2: Delivery Details -->
+        <div *ngIf="step === 2" class="step-content">
+          <div class="card">
+            <div class="card-header">
+              <h2>{{ deliveryType === 'furniture' ? 'Furniture Delivery' : 'Parcel Delivery' }} Details</h2>
+            </div>
+            <div class="card-body">
+              <!-- Common delivery form fields -->
+              <form [formGroup]="deliveryForm">
+                <div class="row mb-4">
+                  <div class="col-md-6">
+                    <h3>Pickup & Delivery Information</h3>
+                    <div class="mb-3">
+                      <label for="pickupAddress" class="form-label">Pickup Address</label>
+                      <select id="pickupAddress" class="form-select" formControlName="pickupAddressId">
+                        <option value="">Select pickup address</option>
+                        <option *ngFor="let address of userAddresses" [value]="address.id">
+                          {{ address.addressLine1 }}, {{ address.city }}
+                        </option>
+                      </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <label for="dropoffAddress" class="form-label">Dropoff Address</label>
+                      <select id="dropoffAddress" class="form-select" formControlName="dropoffAddressId">
+                        <option value="">Select dropoff address</option>
+                        <option *ngFor="let address of userAddresses" [value]="address.id">
+                          {{ address.addressLine1 }}, {{ address.city }}
+                        </option>
+                      </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <label for="scheduledTime" class="form-label">Scheduled Pickup Time</label>
+                      <input type="datetime-local" id="scheduledTime" class="form-control" formControlName="scheduledPickupTime">
+                    </div>
+                    
+                    <div class="mb-3">
+                      <label for="notes" class="form-label">Special Instructions</label>
+                      <textarea id="notes" class="form-control" rows="3" formControlName="notes"></textarea>
+                    </div>
+                  </div>
+                  
+                  <!-- Parcel specific form fields -->
+                  <div *ngIf="deliveryType === 'parcel'" class="col-md-6">
+                    <h3>Parcel Details</h3>
+                    <form [formGroup]="parcelDetailsForm">
+                      <div class="mb-3">
+                        <label for="parcelName" class="form-label">Parcel Name/Description</label>
+                        <input type="text" id="parcelName" class="form-control" formControlName="name">
+                      </div>
+                      
+                      <div class="mb-3">
+                        <label for="parcelWeight" class="form-label">Weight (kg)</label>
+                        <input type="number" id="parcelWeight" class="form-control" formControlName="weight">
+                        <small class="text-muted">Maximum 20kg for parcel delivery</small>
+                      </div>
+                      
+                      <div class="row">
+                        <div class="col-md-4">
+                          <div class="mb-3">
+                            <label for="length" class="form-label">Length (cm)</label>
+                            <input type="number" id="length" class="form-control" formControlName="length">
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="mb-3">
+                            <label for="width" class="form-label">Width (cm)</label>
+                            <input type="number" id="width" class="form-control" formControlName="width">
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="mb-3">
+                            <label for="height" class="form-label">Height (cm)</label>
+                            <input type="number" id="height" class="form-control" formControlName="height">
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="mb-3 form-check">
+                        <input type="checkbox" id="isFragile" class="form-check-input" formControlName="isFragile">
+                        <label for="isFragile" class="form-check-label">Fragile Item</label>
+                      </div>
+                      
+                      <div class="mb-3 form-check">
+                        <input type="checkbox" id="specialHandling" class="form-check-input" formControlName="requiresSpecialHandling">
+                        <label for="specialHandling" class="form-check-label">Requires Special Handling</label>
+                      </div>
+                    </form>
+                  </div>
+                  
+                  <!-- Furniture specific form fields -->
+                  <div *ngIf="deliveryType === 'furniture'" class="col-md-6">
+                    <h3>Furniture Items</h3>
+                    <div class="alert alert-info">
+                      <i class="bi bi-info-circle"></i> Furniture delivery implementation is in progress
+                    </div>
+                    <!-- Furniture items will be implemented in another phase -->
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div class="card-footer">
+              <button class="btn btn-secondary" (click)="prevStep()">Back</button>
+              <button class="btn btn-primary float-end" (click)="nextStep()">Continue</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Step 3: Review & Submit -->
+        <div *ngIf="step === 3" class="step-content">
+          <div class="card">
+            <div class="card-header">
+              <h2>Review Your Order</h2>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h3>Delivery Details</h3>
+                  <table class="table">
+                    <tbody>
+                      <tr>
+                        <th>Delivery Type:</th>
+                        <td>{{ deliveryType === 'furniture' ? 'Furniture Delivery' : 'Parcel Delivery' }}</td>
+                      </tr>
+                      <tr>
+                        <th>Vehicle Type:</th>
+                        <td>{{ deliveryForm.get('requiredVehicleType')?.value }}</td>
+                      </tr>
+                      <tr>
+                        <th>Pickup Address:</th>
+                        <td>Selected Address ID: {{ deliveryForm.get('pickupAddressId')?.value }}</td>
+                      </tr>
+                      <tr>
+                        <th>Dropoff Address:</th>
+                        <td>Selected Address ID: {{ deliveryForm.get('dropoffAddressId')?.value }}</td>
+                      </tr>
+                      <tr>
+                        <th>Scheduled Time:</th>
+                        <td>{{ deliveryForm.get('scheduledPickupTime')?.value | date:'medium' }}</td>
+                      </tr>
+                      <tr>
+                        <th>Notes:</th>
+                        <td>{{ deliveryForm.get('notes')?.value || 'None' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div class="col-md-6">
+                  <h3>{{ deliveryType === 'furniture' ? 'Furniture Items' : 'Parcel Details' }}</h3>
+                  
+                  <!-- Parcel details display -->
+                  <div *ngIf="deliveryType === 'parcel'">
+                    <table class="table">
+                      <tbody>
+                        <tr>
+                          <th>Name:</th>
+                          <td>{{ parcelDetailsForm.get('name')?.value }}</td>
+                        </tr>
+                        <tr>
+                          <th>Weight:</th>
+                          <td>{{ parcelDetailsForm.get('weight')?.value || 0 }} kg</td>
+                        </tr>
+                        <tr>
+                          <th>Dimensions:</th>
+                          <td>
+                            {{ parcelDetailsForm.get('length')?.value || 0 }} × 
+                            {{ parcelDetailsForm.get('width')?.value || 0 }} × 
+                            {{ parcelDetailsForm.get('height')?.value || 0 }} cm
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Fragile:</th>
+                          <td>{{ parcelDetailsForm.get('isFragile')?.value ? 'Yes' : 'No' }}</td>
+                        </tr>
+                        <tr>
+                          <th>Special Handling:</th>
+                          <td>{{ parcelDetailsForm.get('requiresSpecialHandling')?.value ? 'Yes' : 'No' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <!-- Furniture items display -->
+                  <div *ngIf="deliveryType === 'furniture'">
+                    <div class="alert alert-info">
+                      Furniture items implementation in progress
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row mt-4">
+                <div class="col-md-6">
+                  <h3>Payment Details</h3>
+                  <div class="mb-3">
+                    <label for="paymentMethod" class="form-label">Payment Method</label>
+                    <select id="paymentMethod" class="form-select" [formControl]="deliveryForm.controls.paymentMethod">
+                      <option value="cash">Cash on Delivery</option>
+                      <option value="card">Credit/Debit Card</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                    </select>
+                  </div>
+                  
+                  <div class="price-summary">
+                    <h4>Price Summary</h4>
+                    <table class="table">
+                      <tbody>
+                        <tr>
+                          <th>Base Price:</th>
+                          <td>R {{ deliveryType === 'parcel' ? '15.00' : '50.00' }}</td>
+                        </tr>
+                        
+                        <!-- Parcel specific pricing -->
+                        <ng-container *ngIf="deliveryType === 'parcel'">
+                          <tr *ngIf="(parcelDetailsForm.get('weight')?.value || 0) > 5">
+                            <th>Weight Surcharge:</th>
+                            <td>R {{ ((parcelDetailsForm.get('weight')?.value - 5) * 2).toFixed(2) }}</td>
+                          </tr>
+                          <tr *ngIf="parcelDetailsForm.get('isFragile')?.value">
+                            <th>Fragile Item Fee:</th>
+                            <td>R 10.00</td>
+                          </tr>
+                          <tr *ngIf="parcelDetailsForm.get('requiresSpecialHandling')?.value">
+                            <th>Special Handling Fee:</th>
+                            <td>R 15.00</td>
+                          </tr>
+                        </ng-container>
+                        
+                        <tr class="fw-bold">
+                          <th>Total Price:</th>
+                          <td>R {{ calculateDeliveryPrice().toFixed(2) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <h3>Available Drivers</h3>
+                  <button class="btn btn-outline-primary mb-3" (click)="findAvailableDrivers()">
+                    <i class="bi bi-search"></i> Find Available Drivers
+                  </button>
+                  
+                  <div *ngIf="isLoading" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                  
+                  <div *ngIf="availableDrivers.length > 0" class="driver-list">
+                    <div *ngFor="let driver of availableDrivers" class="card mb-2">
+                      <div class="card-body">
+                        <div class="d-flex align-items-center">
+                          <div class="driver-avatar me-3">
+                            <i class="bi bi-person-circle display-6"></i>
+                          </div>
+                          <div class="driver-info">
+                            <h5 class="mb-1">{{ driver.user?.firstName }} {{ driver.user?.lastName }}</h5>
+                            <div class="d-flex align-items-center mb-1">
+                              <div class="rating me-2">
+                                <i class="bi bi-star-fill text-warning"></i>
+                                {{ driver.rating || 0 }}
+                              </div>
+                              <div class="vehicle-type">
+                                <i class="bi bi-truck"></i>
+                                {{ driver.vehicleType }}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div *ngIf="availableDrivers.length === 0 && !isLoading" class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Click 'Find Available Drivers' to see drivers in your area.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">
+              <button class="btn btn-secondary" (click)="prevStep()">Back</button>
+              <button class="btn btn-success float-end" (click)="submitDeliveryRequest()" [disabled]="isLoading">
+                <i class="bi bi-check-circle"></i> Submit Order
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
