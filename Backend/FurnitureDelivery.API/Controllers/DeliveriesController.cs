@@ -402,6 +402,8 @@ namespace FurnitureDelivery.API.Controllers
                 .ThenInclude(d => d.User)
                 .Include(d => d.Items)
                 .ThenInclude(i => i.Furniture)
+                .Include(d => d.Items)
+                .ThenInclude(i => i.Package)
                 .Include(d => d.Payment)
                 .FirstOrDefaultAsync(d => d.Id == id);
 
@@ -485,6 +487,8 @@ namespace FurnitureDelivery.API.Controllers
                 .Include(d => d.Customer)
                 .Include(d => d.Items)
                 .ThenInclude(i => i.Furniture)
+                .Include(d => d.Items)
+                .ThenInclude(i => i.Package)
                 .Include(d => d.Payment)
                 .FirstOrDefaultAsync(d => d.Id == id);
 
@@ -554,6 +558,8 @@ namespace FurnitureDelivery.API.Controllers
                 .ThenInclude(d => d.User)
                 .Include(d => d.Items)
                 .ThenInclude(i => i.Furniture)
+                .Include(d => d.Items)
+                .ThenInclude(i => i.Package)
                 .Include(d => d.Payment)
                 .FirstOrDefaultAsync(d => d.Id == id);
 
@@ -582,12 +588,17 @@ namespace FurnitureDelivery.API.Controllers
                 return NotFound(ApiResponse<List<DeliveryResponseDTO>>.ErrorResponse("Driver record not found"));
             }
 
-            // Get available deliveries (pending status, no driver assigned)
+            // Get available deliveries (pending status, no driver assigned, matching vehicle type)
             var deliveries = await _dbContext.Deliveries
                 .Include(d => d.Customer)
                 .Include(d => d.Items)
                 .ThenInclude(i => i.Furniture)
-                .Where(d => d.Status == "pending" && d.DriverId == null)
+                .Include(d => d.Items)
+                .ThenInclude(i => i.Package)
+                .Where(d => d.Status == "pending" && 
+                       d.DriverId == null && 
+                       (d.RequiredVehicleType == driver.VehicleType || 
+                        (d.RequiredVehicleType == null && driver.VehicleType == "truck"))) // Default to trucks if not specified
                 .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
 
@@ -650,12 +661,17 @@ namespace FurnitureDelivery.API.Controllers
                 Notes = delivery.Notes,
                 EstimatedTime = delivery.EstimatedTime,
                 Distance = delivery.Distance,
+                DeliveryType = delivery.DeliveryType,  // Add delivery type
+                RequiredVehicleType = delivery.RequiredVehicleType,  // Add required vehicle type
                Items = delivery.Items?.Select(i => new DeliveryItemResponseDTO
                 {
                     Id = i.Id,
                     DeliveryId = i.DeliveryId,
+                    ItemType = i.ItemType, // Add ItemType
                     FurnitureId = i.FurnitureId,
-                    Furniture = new FurnitureDTO
+                    PackageId = i.PackageId, // Add PackageId
+                    // Include furniture details if it's a furniture item
+                    Furniture = i.Furniture != null ? new FurnitureDTO
                     {
                         Id = i.Furniture.Id,
                         Name = i.Furniture.Name,
@@ -664,7 +680,21 @@ namespace FurnitureDelivery.API.Controllers
                         Dimensions = i.Furniture.DimensionsJson,
                         Category = i.Furniture.Category,
                         ImageUrl = i.Furniture.ImageUrl
-                    },
+                    } : null,
+                    // Include package details if it's a package item
+                    Package = i.Package != null ? new PackageDTO
+                    {
+                        Id = i.Package.Id,
+                        Name = i.Package.Name,
+                        Description = i.Package.Description,
+                        Weight = i.Package.Weight,
+                        Dimensions = i.Package.Dimensions,
+                        IsFragile = i.Package.IsFragile,
+                        RequiresRefrigeration = i.Package.RequiresRefrigeration,
+                        Value = i.Package.Value,
+                        CustomerId = i.Package.CustomerId,
+                        CreatedAt = i.Package.CreatedAt
+                    } : null,
                     Quantity = i.Quantity,
                     SpecialHandling = i.SpecialHandling
                 }).ToList() ?? new List<DeliveryItemResponseDTO>()
