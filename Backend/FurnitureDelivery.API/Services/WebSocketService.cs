@@ -559,10 +559,12 @@ namespace FurnitureDelivery.API.Services
                         await SendToUser(driver.User.Id, message.Data);
                     }
                 }
+                
+                _logger.LogInformation($"Message broadcast to {availableDrivers.Count} drivers, type: {message.Type}");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error broadcasting to drivers");
+                _logger.LogError(ex, $"Error broadcasting message to drivers");
             }
         }
     }

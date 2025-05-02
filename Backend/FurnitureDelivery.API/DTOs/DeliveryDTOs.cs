@@ -3,6 +3,16 @@ using System.Text.Json.Serialization;
 
 namespace FurnitureDelivery.API.DTOs
 {
+    // Update Delivery Status Request DTO
+    public class UpdateDeliveryStatusRequest
+    {
+        [Required]
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = "";
+        
+        [JsonPropertyName("notes")]
+        public string? Notes { get; set; }
+    }
     // Create Delivery Request DTO
     public class CreateDeliveryRequestDTO
     {
