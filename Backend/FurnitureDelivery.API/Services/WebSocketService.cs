@@ -537,5 +537,31 @@ namespace FurnitureDelivery.API.Services
                 _ => status
             };
         }
+        
+        public async Task BroadcastToDrivers(WebSocketMessage message)
+        {
+            try
+            {
+                // Get all available drivers
+                var availableDrivers = await _dbContext.Drivers
+                    .Where(d => d.IsAvailable) // Using IsAvailable property instead of IsOnline
+                    .Include(d => d.User)
+                    .ToListAsync();
+                
+                _logger.LogInformation($"Broadcasting to {availableDrivers.Count} available drivers");
+                
+                foreach (var driver in availableDrivers)
+                {
+                    if (driver.User != null)
+                    {
+                        await SendToUser(driver.User.Id, message.Data);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting to drivers");
+            }
+        }
     }
 }
