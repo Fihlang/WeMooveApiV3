@@ -41,6 +41,12 @@ namespace FurnitureDelivery.API.DTOs
         /// </summary>
         [JsonPropertyName("onlyAvailable")]
         public bool OnlyAvailable { get; set; } = true;
+        
+        /// <summary>
+        /// Whether to only include drivers that support parcel delivery
+        /// </summary>
+        [JsonPropertyName("parcelDeliveryOnly")]
+        public bool ParcelDeliveryOnly { get; set; } = false;
     }
     
     /// <summary>

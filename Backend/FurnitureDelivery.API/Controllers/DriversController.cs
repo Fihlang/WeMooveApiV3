@@ -122,6 +122,12 @@ namespace FurnitureDelivery.API.Controllers
                 driversQuery = driversQuery.Where(d => d.VehicleType == request.VehicleType);
             }
             
+            // Apply parcel support filter if requested
+            if (request.ParcelDeliveryOnly)
+            {
+                driversQuery = driversQuery.Where(d => d.SupportsParcel == true);
+            }
+            
             // Execute query
             var drivers = await driversQuery.ToListAsync();
 
@@ -321,7 +327,8 @@ namespace FurnitureDelivery.API.Controllers
                     IsAvailable = r.Driver.IsAvailable,
                     CurrentLatitude = r.Driver.CurrentLatitude,
                     CurrentLongitude = r.Driver.CurrentLongitude,
-                    VerificationStatus = r.Driver.VerificationStatus
+                    VerificationStatus = r.Driver.VerificationStatus,
+                    SupportsParcel = r.Driver.SupportsParcel
                 },
                 Rating = r.Rating,
                 Comment = r.Comment
