@@ -36,6 +36,9 @@ namespace FurnitureDelivery.API.Models
         
         public string Documents { get; set; } // JSON string containing document URLs
         
+        // Flag to indicate if driver supports parcel deliveries (useful for filtering)
+        public bool? SupportsParcel { get; set; }
+        
         // Navigation properties
         [ForeignKey("UserId")]
         public virtual User User { get; set; }

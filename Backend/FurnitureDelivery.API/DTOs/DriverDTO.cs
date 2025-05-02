@@ -40,6 +40,9 @@ namespace FurnitureDelivery.API.DTOs
         [JsonPropertyName("documents")]
         public string? Documents { get; set; }
         
+        [JsonPropertyName("supportsParcel")]
+        public bool? SupportsParcel { get; set; }
+        
         [JsonPropertyName("user")]
         public UserDTO? User { get; set; }
     }

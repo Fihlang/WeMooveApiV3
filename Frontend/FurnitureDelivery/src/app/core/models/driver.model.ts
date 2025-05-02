@@ -17,6 +17,7 @@ export interface Driver {
     insurance?: string;
     [key: string]: string | undefined;
   };
+  supportsParcel?: boolean;
 }
 
 export interface DriverLocation {

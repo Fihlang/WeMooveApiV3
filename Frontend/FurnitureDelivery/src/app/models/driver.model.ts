@@ -10,6 +10,7 @@ export interface Driver {
   currentLongitude: number | null;
   verificationStatus: string;
   documents: any;
+  supportsParcel: boolean | null;
 }
 
 export interface DriverWithDetails extends Driver {
