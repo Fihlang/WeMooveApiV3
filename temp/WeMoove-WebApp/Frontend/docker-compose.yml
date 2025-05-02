@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  angular-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: furniture_delivery_angular
+    ports:
+      - "4200:80"
+    restart: unless-stopped
+    environment:
+      - API_URL=http://localhost:5000/api
+      - WS_URL=ws://localhost:5000/ws
+
+networks:
+  default:
+    name: furniture_delivery_network
+    external: true

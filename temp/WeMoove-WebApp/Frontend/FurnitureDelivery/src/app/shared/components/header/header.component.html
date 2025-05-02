@@ -1,0 +1,70 @@
+<mat-toolbar color="primary">
+  <div class="toolbar-container">
+    <div class="logo-section">
+      <button mat-button routerLink="/">
+        <span class="logo">Furniture Delivery</span>
+      </button>
+    </div>
+    
+    <div class="nav-links" *ngIf="userRole">
+      <ng-container *ngIf="userRole === 'customer'">
+        <button mat-button routerLink="/furniture">Browse Furniture</button>
+        <button mat-button routerLink="/deliveries">My Deliveries</button>
+      </ng-container>
+      
+      <ng-container *ngIf="userRole === 'driver'">
+        <button mat-button routerLink="/driver/deliveries">Assigned Deliveries</button>
+        <button mat-button routerLink="/driver/availability">My Availability</button>
+      </ng-container>
+    </div>
+    
+    <div class="user-section">
+      <ng-container *ngIf="!userRole">
+        <button mat-button routerLink="/login">Login</button>
+        <button mat-raised-button color="accent" routerLink="/register">Register</button>
+      </ng-container>
+      
+      <ng-container *ngIf="userRole">
+        <button mat-icon-button [matMenuTriggerFor]="notificationsMenu" class="notification-btn">
+          <mat-icon [matBadge]="unreadNotifications" [matBadgeHidden]="unreadNotifications === 0" matBadgeColor="accent">
+            notifications
+          </mat-icon>
+        </button>
+        
+        <mat-menu #notificationsMenu="matMenu" class="notifications-menu">
+          <div class="notifications-header">
+            <h3>Notifications</h3>
+          </div>
+          <div class="empty-state" *ngIf="unreadNotifications === 0">
+            <p>No new notifications</p>
+          </div>
+          <!-- Notifications would go here -->
+          <div class="notifications-footer">
+            <button mat-button color="primary" (click)="navigateToNotifications()">View All</button>
+          </div>
+        </mat-menu>
+        
+        <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+          <span class="user-name">{{ userFullName }}</span>
+          <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+        
+        <mat-menu #userMenu="matMenu">
+          <button mat-menu-item (click)="navigateToDashboard()">
+            <mat-icon>dashboard</mat-icon>
+            <span>Dashboard</span>
+          </button>
+          <button mat-menu-item (click)="navigateToProfile()">
+            <mat-icon>person</mat-icon>
+            <span>My Profile</span>
+          </button>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>exit_to_app</mat-icon>
+            <span>Logout</span>
+          </button>
+        </mat-menu>
+      </ng-container>
+    </div>
+  </div>
+</mat-toolbar>
