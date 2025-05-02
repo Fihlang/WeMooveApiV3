@@ -99,5 +99,12 @@ namespace FurnitureDelivery.API.Services
         /// <param name="message">The message DTO</param>
         /// <returns>A task representing the asynchronous operation</returns>
         Task SendNewMessage(MessageDTO message);
+        
+        /// <summary>
+        /// Creates a notification for a new message and sends it via WebSocket
+        /// </summary>
+        /// <param name="messageId">The ID of the message to notify about</param>
+        /// <returns>The ID of the created notification</returns>
+        Task<int> NotifyNewMessage(int messageId);
     }
 }
