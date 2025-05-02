@@ -1,0 +1,58 @@
+   [HttpGet("reviews/{driverId}")]
+        public async Task<ActionResult<ApiResponse<List<ReviewResponseDTO>>>> GetDriverReviews(int driverId)
+        {
+            // Check if driver exists
+            var driver = await _dbContext.Drivers.FindAsync(driverId);
+            if (driver == null)
+            {
+                return NotFound(ApiResponse<List<ReviewResponseDTO>>.ErrorResponse("Driver not found"));
+            }
+
+            // Get reviews
+            var reviews = await _dbContext.Reviews
+                .Include(r => r.Customer)
+                .Include(r => r.Driver)
+                .ThenInclude(d => d.User)
+                .Where(r => r.DriverId == driverId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+
+            // Map to DTOs
+            var reviewDTOs = reviews.Select(r => new ReviewResponseDTO
+            {
+                Id = r.Id,
+                CreatedAt = r.CreatedAt,
+                DeliveryId = r.DeliveryId,
+                CustomerId = r.CustomerId,
+                Customer = new UserDTO
+                {
+                    Id = r.Customer.Id,
+                    Email = r.Customer.Email,
+                    FirstName = r.Customer.FirstName,
+                    LastName = r.Customer.LastName,
+                    PhoneNumber = r.Customer.PhoneNumber,
+                    Address = r.Customer.Address,
+                    AvatarUrl = r.Customer.AvatarUrl,
+                    IsVerified = r.Customer.IsVerified,
+                    UserType = r.Customer.UserType
+                },
+                DriverId = r.DriverId,
+                Driver = new DriverDTO
+                {
+                    Id = r.Driver.Id,
+                    UserId = r.Driver.UserId,
+                    VehicleType = r.Driver.VehicleType,
+                    LicensePlate = r.Driver.LicensePlate,
+                    Capacity = r.Driver.Capacity,
+                    Rating = r.Driver.Rating,
+                    IsAvailable = r.Driver.IsAvailable,
+                    CurrentLatitude = r.Driver.CurrentLatitude,
+                    CurrentLongitude = r.Driver.CurrentLongitude,
+                    VerificationStatus = r.Driver.VerificationStatus
+                },
+                Rating = r.Rating,
+                Comment = r.Comment
+            }).ToList();
+
+            return Ok(ApiResponse<List<ReviewResponseDTO>>.SuccessResponse(reviewDTOs));
+        }
