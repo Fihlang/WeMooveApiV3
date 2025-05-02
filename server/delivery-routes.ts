@@ -885,15 +885,239 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced endpoint for delivery status updates with automated transitions and additional actions
   app.put('/api/deliveries/:id/status', async (req: Request, res: Response) => {
     try {
       const deliveryId = parseInt(req.params.id);
-      const { status } = req.body;
+      const { 
+        status, 
+        latitude, 
+        longitude, 
+        notes,
+        autoTransition = false // Whether to automatically progress to the next logical status
+      } = req.body;
       
       if (!status) {
         return res.status(400).json({ error: 'Status is required' });
       }
       
+      // Get current delivery to check previous status
+      const currentDelivery = await deliveryStorage.getDelivery(deliveryId);
+      if (!currentDelivery) {
+        return res.status(404).json({ error: 'Delivery not found' });
+      }
+      
+      // Validate status transition
+      const validTransitions: Record<string, string[]> = {
+        'pending': ['accepted', 'cancelled'],
+        'accepted': ['driver_en_route_to_pickup', 'cancelled'],
+        'driver_en_route_to_pickup': ['at_pickup', 'cancelled'],
+        'at_pickup': ['loading', 'cancelled'],
+        'loading': ['in_transit', 'cancelled'],
+        'in_transit': ['arriving', 'cancelled'],
+        'arriving': ['at_dropoff', 'cancelled'],
+        'at_dropoff': ['unloading', 'cancelled'],
+        'unloading': ['completed', 'cancelled'],
+        'completed': [],
+        'cancelled': []
+      };
+      
+      // Check if the status transition is valid 
+      // Skip for admin role (would need to be added with proper auth)
+      const isValidTransition = validTransitions[currentDelivery.status]?.includes(status);
+      if (!isValidTransition && currentDelivery.status !== status) {
+        return res.status(400).json({ 
+          error: `Invalid status transition from '${currentDelivery.status}' to '${status}'`,
+          validTransitions: validTransitions[currentDelivery.status]
+        });
+      }
+      
+      // Get full delivery details for notifications
+      const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(deliveryId);
+      if (!deliveryWithDetails) {
+        return res.status(404).json({ error: 'Delivery details not found' });
+      }
+      
+      // Handle specific status changes with additional logic
+      let shouldUpdateDriverStatus = false;
+      let newDriverStatus: { isOnline?: boolean, isAvailable?: boolean } = {};
+      let shouldUpdateLocation = false;
+      let locationUpdate = null;
+      
+      // Additional action based on the status transition
+      switch (status) {
+        case 'accepted':
+          // When a driver accepts a delivery
+          shouldUpdateDriverStatus = true;
+          newDriverStatus = { isAvailable: false };
+          
+          // Create message welcoming the customer
+          if (deliveryWithDetails.driver && deliveryWithDetails.driver.user) {
+            await deliveryStorage.createMessage({
+              deliveryId,
+              senderId: deliveryWithDetails.driver.userId,
+              receiverId: deliveryWithDetails.customer.userId,
+              content: `Hello, I'm ${deliveryWithDetails.driver.user.firstName} and I'll be your delivery driver today. I'll be heading to the pickup location soon.`,
+              messageType: 'text'
+            });
+          }
+          break;
+          
+        case 'driver_en_route_to_pickup':
+          // When driver starts heading to pickup location
+          shouldUpdateLocation = true;
+          
+          // Send a notification to the customer that driver is on the way
+          if (deliveryWithDetails.driver && deliveryWithDetails.driver.user) {
+            const estimatedPickupTime = new Date();
+            estimatedPickupTime.setMinutes(estimatedPickupTime.getMinutes() + 15); // Simple estimate
+            
+            await deliveryStorage.createMessage({
+              deliveryId,
+              senderId: deliveryWithDetails.driver.userId,
+              receiverId: deliveryWithDetails.customer.userId,
+              content: `I'm now on my way to pick up your items. Estimated arrival at pickup location in about 15 minutes.`,
+              messageType: 'text'
+            });
+          }
+          break;
+          
+        case 'at_pickup':
+          // When driver arrives at pickup location
+          shouldUpdateLocation = true;
+          
+          // Send notification to customer
+          await deliveryStorage.createMessage({
+            deliveryId,
+            senderId: deliveryWithDetails.driver.userId,
+            receiverId: deliveryWithDetails.customer.userId,
+            content: `I've arrived at the pickup location.${notes ? ' ' + notes : ''}`,
+            messageType: 'text'
+          });
+          break;
+          
+        case 'loading':
+          // Items are being loaded onto vehicle
+          break;
+          
+        case 'in_transit':
+          // Driver has started the journey to dropoff
+          shouldUpdateLocation = true;
+          
+          // Notify customer
+          await deliveryStorage.createMessage({
+            deliveryId,
+            senderId: deliveryWithDetails.driver.userId,
+            receiverId: deliveryWithDetails.customer.userId,
+            content: `Your items are now loaded and I'm on the way to your delivery location.`,
+            messageType: 'text'
+          });
+          break;
+          
+        case 'arriving':
+          // Driver is close to the dropoff location
+          shouldUpdateLocation = true;
+          
+          // Notify customer of imminent arrival
+          await deliveryStorage.createMessage({
+            deliveryId,
+            senderId: deliveryWithDetails.driver.userId,
+            receiverId: deliveryWithDetails.customer.userId,
+            content: `I'm arriving at your location shortly (within 5 minutes).${notes ? ' ' + notes : ''}`,
+            messageType: 'text'
+          });
+          break;
+          
+        case 'at_dropoff':
+          // Driver has arrived at dropoff location
+          shouldUpdateLocation = true;
+          
+          // Notify customer
+          await deliveryStorage.createMessage({
+            deliveryId,
+            senderId: deliveryWithDetails.driver.userId,
+            receiverId: deliveryWithDetails.customer.userId,
+            content: `I've arrived at your location.${notes ? ' ' + notes : ''}`,
+            messageType: 'text'
+          });
+          break;
+          
+        case 'unloading':
+          // Items are being unloaded
+          break;
+          
+        case 'completed':
+          // Delivery has been completed
+          shouldUpdateDriverStatus = true;
+          newDriverStatus = { isAvailable: true };
+          
+          // Update driver's current delivery ID to null
+          if (deliveryWithDetails.driverId) {
+            await deliveryStorage.updateDriver(deliveryWithDetails.driverId, { 
+              currentDeliveryId: null 
+            });
+          }
+          
+          // Check if payment is complete and update if needed
+          const payment = await deliveryStorage.getPaymentByDeliveryId(deliveryId);
+          if (payment && payment.status !== 'completed') {
+            await deliveryStorage.updatePaymentStatus(payment.id, 'completed');
+          }
+          
+          // Send thank you message
+          await deliveryStorage.createMessage({
+            deliveryId,
+            senderId: deliveryWithDetails.driver.userId,
+            receiverId: deliveryWithDetails.customer.userId,
+            content: `Thank you for using our service! Your delivery is now complete. It was a pleasure serving you.`,
+            messageType: 'text'
+          });
+          break;
+          
+        case 'cancelled':
+          // Delivery has been cancelled
+          shouldUpdateDriverStatus = true;
+          newDriverStatus = { isAvailable: true };
+          
+          // Update driver's current delivery ID to null
+          if (deliveryWithDetails.driverId) {
+            await deliveryStorage.updateDriver(deliveryWithDetails.driverId, { 
+              currentDeliveryId: null 
+            });
+          }
+          break;
+      }
+      
+      // Update driver status if needed
+      if (shouldUpdateDriverStatus && deliveryWithDetails.driverId) {
+        await deliveryStorage.updateDriver(deliveryWithDetails.driverId, newDriverStatus);
+      }
+      
+      // Update driver location if provided
+      if (shouldUpdateLocation && latitude && longitude && deliveryWithDetails.driverId) {
+        locationUpdate = await deliveryStorage.updateDriverLocation(
+          deliveryWithDetails.driverId,
+          parseFloat(latitude),
+          parseFloat(longitude)
+        );
+      }
+      
+      // Add activity log entry
+      const activityType = `status_${status}`;
+      await db.insert(schema.deliveryActivities).values({
+        deliveryId,
+        activityType,
+        details: JSON.stringify({
+          prevStatus: currentDelivery.status,
+          newStatus: status,
+          notes,
+          location: latitude && longitude ? { latitude, longitude } : null,
+          timestamp: new Date().toISOString()
+        }),
+        createdAt: new Date()
+      });
+      
+      // Update the delivery status
       const delivery = await deliveryStorage.updateDeliveryStatus(deliveryId, status);
       
       // Notify all clients subscribed to this delivery about the status change
@@ -902,18 +1126,20 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
         payload: {
           deliveryId,
           status,
+          prevStatus: currentDelivery.status,
+          notes,
+          location: latitude && longitude ? { latitude, longitude } : null,
           timestamp: new Date().toISOString()
         }
       });
       
       // Create a notification for the customer
-      const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(deliveryId);
       if (deliveryWithDetails) {
         const statusMessage = getStatusMessage(status);
         
         // Create in-app notification
         await deliveryStorage.createNotification({
-          userId: deliveryWithDetails.customer.id,
+          userId: deliveryWithDetails.customer.userId,
           title: 'Delivery Status Update',
           message: statusMessage,
           type: 'delivery_update',
@@ -1065,7 +1291,40 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.json(delivery);
+      // For auto-transition modes, check if we should auto-transition to the next status
+      if (autoTransition && status !== 'completed' && status !== 'cancelled') {
+        // Schedule the next status update (in a real system, this would be a background job)
+        // For now, we'll just log that it would happen
+        const nextStatusMap: Record<string, { status: string, delayMinutes: number }> = {
+          'accepted': { status: 'driver_en_route_to_pickup', delayMinutes: 1 },
+          'driver_en_route_to_pickup': { status: 'at_pickup', delayMinutes: 10 },
+          'at_pickup': { status: 'loading', delayMinutes: 5 },
+          'loading': { status: 'in_transit', delayMinutes: 5 },
+          'in_transit': { status: 'arriving', delayMinutes: 15 },
+          'arriving': { status: 'at_dropoff', delayMinutes: 5 },
+          'at_dropoff': { status: 'unloading', delayMinutes: 5 },
+          'unloading': { status: 'completed', delayMinutes: 5 }
+        };
+        
+        const nextTransition = nextStatusMap[status];
+        if (nextTransition) {
+          console.log(`Auto-transition scheduled: Delivery ${deliveryId} will move from ${status} to ${nextTransition.status} in ${nextTransition.delayMinutes} minutes`);
+          
+          // In a production system, this would involve a background task scheduler
+          // For demo purposes, we'll just acknowledge the intent to auto-transition
+        }
+      }
+      
+      // Return updated delivery with additional info
+      res.json({
+        ...delivery,
+        locationUpdate,
+        statusTransition: {
+          from: currentDelivery.status,
+          to: status,
+          timestamp: new Date().toISOString()
+        }
+      });
     } catch (error) {
       console.error('Error updating delivery status:', error);
       res.status(500).json({ error: 'Failed to update delivery status' });
