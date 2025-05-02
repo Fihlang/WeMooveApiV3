@@ -16,6 +16,14 @@ namespace FurnitureDelivery.API.Models
         public int? DriverId { get; set; }
         
         [Required]
+        [StringLength(20)]
+        public string DeliveryType { get; set; } = "furniture"; // "furniture" or "parcel"
+        
+        [Required]
+        [StringLength(20)]
+        public string RequiredVehicleType { get; set; } = "truck"; // "truck" or "motorbike"
+        
+        [Required]
         public string Status { get; set; } // "pending", "accepted", "picked_up", "in_transit", "delivered", "completed", "cancelled"
         
         [Required]

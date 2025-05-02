@@ -11,8 +11,12 @@ namespace FurnitureDelivery.API.Models
         [Required]
         public int DeliveryId { get; set; }
         
+        public int? FurnitureId { get; set; }
+        
+        public int? PackageId { get; set; }
+        
         [Required]
-        public int FurnitureId { get; set; }
+        public string ItemType { get; set; } = "furniture"; // "furniture" or "package"
         
         [Required]
         public int Quantity { get; set; }
@@ -25,5 +29,8 @@ namespace FurnitureDelivery.API.Models
         
         [ForeignKey("FurnitureId")]
         public virtual Furniture Furniture { get; set; }
+        
+        [ForeignKey("PackageId")]
+        public virtual Package Package { get; set; }
     }
 }

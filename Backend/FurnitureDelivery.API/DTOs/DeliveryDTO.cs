@@ -60,6 +60,12 @@ namespace FurnitureDelivery.API.DTOs
         [JsonPropertyName("estimatedTime")]
         public double? EstimatedTime { get; set; }
         
+        [JsonPropertyName("deliveryType")]
+        public string DeliveryType { get; set; } = "furniture"; // "furniture" or "parcel"
+        
+        [JsonPropertyName("requiredVehicleType")]
+        public string RequiredVehicleType { get; set; } = "truck"; // "truck" or "motorbike"
+        
         [JsonPropertyName("items")]
         public List<DeliveryItemDTO>? Items { get; set; }
     }
