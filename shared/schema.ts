@@ -14,6 +14,13 @@ export const VehicleType = {
   MOTORBIKE: "motorbike",
 } as const;
 
+export const DriverStatus = {
+  OFFLINE: "offline",
+  ONLINE: "online",
+  BUSY: "busy",
+  ON_BREAK: "on_break",
+} as const;
+
 export const DeliveryStatus = {
   PENDING: "pending",
   ACCEPTED: "accepted",
