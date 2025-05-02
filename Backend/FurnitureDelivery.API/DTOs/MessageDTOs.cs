@@ -56,6 +56,12 @@ namespace FurnitureDelivery.API.DTOs
         public int SenderId { get; set; }
         
         /// <summary>
+        /// Type of sender (e.g., "customer", "driver", "system")
+        /// </summary>
+        [JsonPropertyName("senderType")]
+        public string SenderType { get; set; }
+        
+        /// <summary>
         /// Name of the sender
         /// </summary>
         [JsonPropertyName("senderName")]

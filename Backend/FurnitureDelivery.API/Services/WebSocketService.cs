@@ -369,6 +369,7 @@ namespace FurnitureDelivery.API.Services
                     Id = message.Id,
                     DeliveryId = message.DeliveryId,
                     SenderId = message.SenderId,
+                    SenderType = message.SenderType,
                     SenderName = $"{message.Sender.FirstName} {message.Sender.LastName}",
                     RecipientId = message.RecipientId,
                     RecipientName = $"{message.Recipient.FirstName} {message.Recipient.LastName}",

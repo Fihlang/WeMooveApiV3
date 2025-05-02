@@ -32,6 +32,13 @@ namespace FurnitureDelivery.API.Models
         public int SenderId { get; set; }
         
         /// <summary>
+        /// Type of sender (e.g., "customer", "driver", "system")
+        /// </summary>
+        [Required]
+        [StringLength(20)]
+        public string SenderType { get; set; }
+        
+        /// <summary>
         /// Navigation property for the sender
         /// </summary>
         [ForeignKey("SenderId")]
