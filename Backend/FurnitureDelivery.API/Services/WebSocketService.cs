@@ -419,7 +419,7 @@ namespace FurnitureDelivery.API.Services
                 // Get all drivers
                 var drivers = await _dbContext.Drivers
                     .Include(d => d.User)
-                    .Where(d => d.IsOnline)
+                    .Where(d => d.IsAvailable)
                     .ToListAsync();
                 
                 foreach (var driver in drivers)
