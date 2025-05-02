@@ -106,5 +106,20 @@ namespace FurnitureDelivery.API.Services
         /// <param name="messageId">The ID of the message to notify about</param>
         /// <returns>The ID of the created notification</returns>
         Task<int> NotifyNewMessage(int messageId);
+        
+        /// <summary>
+        /// Broadcasts a message to all connected drivers
+        /// </summary>
+        /// <param name="message">The message to broadcast</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        Task BroadcastToDrivers(object message);
+        
+        /// <summary>
+        /// Broadcasts a delivery status update to all connections tracking the delivery
+        /// </summary>
+        /// <param name="deliveryId">The delivery ID</param>
+        /// <param name="status">The new status</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        Task BroadcastDeliveryStatusUpdate(int deliveryId, string status);
     }
 }

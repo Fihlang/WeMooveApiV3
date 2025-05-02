@@ -411,5 +411,130 @@ namespace FurnitureDelivery.API.Services
                 throw;
             }
         }
+        
+        public async Task BroadcastToDrivers(object message)
+        {
+            try
+            {
+                // Get all drivers
+                var drivers = await _dbContext.Drivers
+                    .Include(d => d.User)
+                    .Where(d => d.IsOnline)
+                    .ToListAsync();
+                
+                foreach (var driver in drivers)
+                {
+                    if (driver.User != null)
+                    {
+                        await SendToUser(driver.User.Id, message);
+                    }
+                }
+                
+                _logger.LogInformation($"Message broadcast to {drivers.Count} drivers");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting message to drivers");
+            }
+        }
+        
+        public async Task BroadcastDeliveryStatusUpdate(int deliveryId, string status)
+        {
+            try
+            {
+                var delivery = await _dbContext.Deliveries
+                    .Include(d => d.Customer)
+                    .Include(d => d.Driver)
+                        .ThenInclude(dr => dr != null ? dr.User : null)
+                    .FirstOrDefaultAsync(d => d.Id == deliveryId);
+                
+                if (delivery == null)
+                {
+                    _logger.LogWarning($"BroadcastDeliveryStatusUpdate: Delivery with ID {deliveryId} not found");
+                    return;
+                }
+                
+                // Create status update message
+                var statusUpdate = new DeliveryStatusUpdateDTO
+                {
+                    DeliveryId = deliveryId,
+                    Status = status,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                
+                // Send to connections tracking this delivery
+                await SendToDelivery(deliveryId, statusUpdate);
+                
+                // Send to customer
+                await SendToUser(delivery.CustomerId, statusUpdate);
+                
+                // Send to driver if assigned
+                if (delivery.DriverId.HasValue && delivery.Driver?.User != null)
+                {
+                    await SendToUser(delivery.Driver.User.Id, statusUpdate);
+                }
+                
+                // Create notifications
+                var title = "Delivery Status Update";
+                var message = $"Your delivery #{deliveryId} is now {GetStatusDisplayName(status)}";
+                
+                // Notify customer
+                var customerNotification = new Models.Notification
+                {
+                    UserId = delivery.CustomerId,
+                    Type = "delivery_status",
+                    Title = title,
+                    Message = message,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow,
+                    RelatedEntityType = "delivery",
+                    RelatedEntityId = deliveryId
+                };
+                
+                _dbContext.Notifications.Add(customerNotification);
+                
+                // Notify driver if assigned
+                if (delivery.DriverId.HasValue && delivery.Driver?.User != null)
+                {
+                    var driverNotification = new Models.Notification
+                    {
+                        UserId = delivery.Driver.User.Id,
+                        Type = "delivery_status",
+                        Title = title,
+                        Message = message,
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow,
+                        RelatedEntityType = "delivery",
+                        RelatedEntityId = deliveryId
+                    };
+                    
+                    _dbContext.Notifications.Add(driverNotification);
+                }
+                
+                await _dbContext.SaveChangesAsync();
+                
+                _logger.LogInformation($"Delivery status update for delivery {deliveryId} broadcast: {status}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error broadcasting delivery status update for delivery {deliveryId}");
+            }
+        }
+        
+        private string GetStatusDisplayName(string status)
+        {
+            return status switch
+            {
+                "pending" => "Pending",
+                "accepted" => "Accepted",
+                "assigned" => "Assigned to Driver",
+                "picked_up" => "Picked Up",
+                "in_transit" => "In Transit",
+                "delivered" => "Delivered",
+                "completed" => "Completed",
+                "cancelled" => "Cancelled",
+                _ => status
+            };
+        }
     }
 }

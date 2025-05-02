@@ -47,6 +47,12 @@ namespace FurnitureDelivery.API.Models
         
         public double? Distance { get; set; }
         
+        [StringLength(50)]
+        public string TrackingNumber { get; set; }
+        
+        [StringLength(500)]
+        public string Notes { get; set; }
+        
         [Required]
         public DateTime CreatedAt { get; set; }
         
