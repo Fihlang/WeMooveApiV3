@@ -92,5 +92,12 @@ namespace FurnitureDelivery.API.Services
         /// <param name="longitude">The current longitude</param>
         /// <returns>A task representing the asynchronous operation</returns>
         Task BroadcastLocationUpdate(int driverId, double latitude, double longitude);
+        
+        /// <summary>
+        /// Sends a new message to the recipient and notifies all connections tracking the delivery
+        /// </summary>
+        /// <param name="message">The message DTO</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        Task SendNewMessage(MessageDTO message);
     }
 }

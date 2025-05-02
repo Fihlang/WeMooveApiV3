@@ -263,5 +263,73 @@ namespace FurnitureDelivery.API.Services
                 _logger.LogError(ex, $"Error broadcasting location update for driver {driverId}");
             }
         }
+        
+        public async Task SendNewMessage(MessageDTO message)
+        {
+            try
+            {
+                // Send the message to the recipient
+                await SendToUser(message.RecipientId, message);
+                
+                // Get delivery details
+                var delivery = await _dbContext.Deliveries
+                    .Include(d => d.Customer)
+                    .Include(d => d.Driver)
+                    .ThenInclude(dr => dr.User)
+                    .FirstOrDefaultAsync(d => d.Id == message.DeliveryId);
+                    
+                if (delivery == null)
+                {
+                    _logger.LogWarning($"SendNewMessage: Delivery with ID {message.DeliveryId} not found");
+                    return;
+                }
+                
+                // Broadcast to all connections tracking this delivery
+                await SendToDelivery(message.DeliveryId, message);
+                
+                // Create a notification for the recipient
+                var sender = await _dbContext.Users.FindAsync(message.SenderId);
+                if (sender != null)
+                {
+                    var notification = new Models.Notification
+                    {
+                        UserId = message.RecipientId,
+                        Type = "message",
+                        Title = "New Message",
+                        Message = $"New message from {sender.FirstName} {sender.LastName}",
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow,
+                        RelatedEntityType = "delivery",
+                        RelatedEntityId = message.DeliveryId
+                    };
+                    
+                    _dbContext.Notifications.Add(notification);
+                    await _dbContext.SaveChangesAsync();
+                    
+                    // Convert to DTO for websocket
+                    var notificationDto = new NotificationDTO
+                    {
+                        Id = notification.Id,
+                        UserId = notification.UserId,
+                        Type = notification.Type,
+                        Title = notification.Title,
+                        Message = notification.Message,
+                        IsRead = notification.IsRead,
+                        CreatedAt = notification.CreatedAt,
+                        RelatedEntityType = notification.RelatedEntityType,
+                        RelatedEntityId = notification.RelatedEntityId
+                    };
+                    
+                    // Send notification through WebSocket
+                    await SendToUser(message.RecipientId, notificationDto);
+                }
+                
+                _logger.LogInformation($"Message sent from user {message.SenderId} to user {message.RecipientId} for delivery {message.DeliveryId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error sending message from user {message.SenderId} to user {message.RecipientId}");
+            }
+        }
     }
 }
