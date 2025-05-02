@@ -66,6 +66,9 @@ namespace FurnitureDelivery.API.DTOs
         [JsonPropertyName("customerId")]
         public int CustomerId { get; set; }
         
+        [JsonPropertyName("customer")]
+        public UserDTO? Customer { get; set; }
+        
         [JsonPropertyName("customerName")]
         public string? CustomerName { get; set; }
         
@@ -74,6 +77,9 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("driverId")]
         public int? DriverId { get; set; }
+        
+        [JsonPropertyName("driver")]
+        public DriverDTO? Driver { get; set; }
         
         [JsonPropertyName("driverName")]
         public string? DriverName { get; set; }
@@ -96,6 +102,9 @@ namespace FurnitureDelivery.API.DTOs
         [JsonPropertyName("totalPrice")]
         public decimal TotalPrice { get; set; }
         
+        [JsonPropertyName("payment")]
+        public PaymentDTO? Payment { get; set; }
+        
         [JsonPropertyName("paymentStatus")]
         public string? PaymentStatus { get; set; }
         
@@ -110,6 +119,15 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("actualDuration")]
         public double? ActualDuration { get; set; }
+        
+        [JsonPropertyName("trackingNumber")]
+        public string? TrackingNumber { get; set; }
+        
+        [JsonPropertyName("notes")]
+        public string? Notes { get; set; }
+        
+        [JsonPropertyName("estimatedTime")]
+        public double? EstimatedTime { get; set; }
         
         [JsonPropertyName("items")]
         public List<DeliveryItemResponseDTO>? Items { get; set; }
@@ -129,6 +147,9 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("furnitureId")]
         public int FurnitureId { get; set; }
+        
+        [JsonPropertyName("furniture")]
+        public FurnitureDTO? Furniture { get; set; }
         
         [JsonPropertyName("furnitureName")]
         public string? FurnitureName { get; set; }

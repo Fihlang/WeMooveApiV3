@@ -1,0 +1,86 @@
+        private DeliveryResponseDTO MapDeliveryToDTO(Delivery delivery)
+        {
+            var dto = new DeliveryResponseDTO
+            {
+                Id = delivery.Id,
+                CreatedAt = delivery.CreatedAt,
+                UpdatedAt = delivery.UpdatedAt,
+                CustomerId = delivery.CustomerId,
+                Customer = new UserDTO
+                {
+                    Id = delivery.Customer.Id,
+                    Email = delivery.Customer.Email,
+                    FirstName = delivery.Customer.FirstName,
+                    LastName = delivery.Customer.LastName,
+                    PhoneNumber = delivery.Customer.PhoneNumber,
+                    Address = delivery.Customer.Address,
+                    AvatarUrl = delivery.Customer.AvatarUrl,
+                    IsVerified = delivery.Customer.IsVerified,
+                    UserType = delivery.Customer.UserType
+                },
+                DriverId = delivery.DriverId,
+                Status = delivery.Status,
+                ScheduledDate = delivery.ScheduledDate,
+                TotalPrice = delivery.TotalPrice,
+                PickupAddress = delivery.PickupAddress,
+                DestinationAddress = delivery.DestinationAddress,
+                TrackingNumber = delivery.TrackingNumber,
+                Notes = delivery.Notes,
+                EstimatedTime = delivery.EstimatedTime,
+                Distance = delivery.Distance,
+                Items = delivery.Items?.Select(i => new DeliveryItemResponseDTO
+                {
+                    Id = i.Id,
+                    DeliveryId = i.DeliveryId,
+                    FurnitureId = i.FurnitureId,
+                    Furniture = new FurnitureDTO
+                    {
+                        Id = i.Furniture.Id,
+                        Name = i.Furniture.Name,
+                        Description = i.Furniture.Description,
+                        Weight = i.Furniture.Weight,
+                        Dimensions = i.Furniture.DimensionsJson,
+                        Category = i.Furniture.Category,
+                        ImageUrl = i.Furniture.ImageUrl
+                    },
+                    Quantity = i.Quantity,
+                    SpecialHandling = i.SpecialHandling
+                }).ToList() ?? new List<CreateDeliveryItemDTO>()
+            };
+
+            // Add driver details if assigned
+            if (delivery.Driver != null && delivery.Driver.User != null)
+            {
+                dto.Driver = new DriverDTO
+                {
+                    Id = delivery.Driver.Id,
+                    UserId = delivery.Driver.UserId,
+                    VehicleType = delivery.Driver.VehicleType,
+                    LicensePlate = delivery.Driver.LicensePlate,
+                    Capacity = delivery.Driver.Capacity,
+                    Rating = delivery.Driver.Rating,
+                    IsAvailable = delivery.Driver.IsAvailable,
+                    CurrentLatitude = delivery.Driver.CurrentLatitude,
+                    CurrentLongitude = delivery.Driver.CurrentLongitude,
+                    VerificationStatus = delivery.Driver.VerificationStatus
+                };
+            }
+
+            // Add payment details if exists
+            if (delivery.Payment != null)
+            {
+                dto.Payment = new PaymentDTO
+                {
+                    Id = delivery.Payment.Id,
+                    DeliveryId = delivery.Payment.DeliveryId,
+                    Method = delivery.Payment.PaymentMethod,
+                    Status = delivery.Payment.Status,
+                    Amount = delivery.Payment.Amount,
+                    CreatedAt = delivery.Payment.CreatedAt,
+                    PaidAt = delivery.Payment.PaidAt
+                };
+            }
+
+            return dto;
+        }
+    }
