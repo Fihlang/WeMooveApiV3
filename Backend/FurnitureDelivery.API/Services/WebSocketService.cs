@@ -213,5 +213,55 @@ namespace FurnitureDelivery.API.Services
                 }
             }
         }
+        
+        public async Task BroadcastLocationUpdate(int driverId, double latitude, double longitude)
+        {
+            try
+            {
+                // Find the driver
+                var driver = await _dbContext.Drivers.FindAsync(driverId);
+                if (driver == null)
+                {
+                    _logger.LogWarning($"BroadcastLocationUpdate: Driver with ID {driverId} not found");
+                    return;
+                }
+                
+                // Update the driver's location in the database
+                driver.CurrentLatitude = latitude;
+                driver.CurrentLongitude = longitude;
+                await _dbContext.SaveChangesAsync();
+                
+                // Get all active deliveries for this driver
+                var activeDeliveries = await _dbContext.Deliveries
+                    .Where(d => d.DriverId == driverId && 
+                               (d.Status == "assigned" || d.Status == "picked_up" || d.Status == "in_transit"))
+                    .ToListAsync();
+                
+                // Create location update DTO
+                var locationUpdate = new LocationUpdateDTO
+                {
+                    DriverId = driverId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                
+                // Send location update to all users tracking any of the active deliveries
+                foreach (var delivery in activeDeliveries)
+                {
+                    locationUpdate.DeliveryId = delivery.Id;
+                    await SendToDelivery(delivery.Id, locationUpdate);
+                    
+                    // Also send to the customer directly
+                    await SendToUser(delivery.CustomerId, locationUpdate);
+                }
+                
+                _logger.LogInformation($"Location update broadcast for driver {driverId} to {activeDeliveries.Count} deliveries");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error broadcasting location update for driver {driverId}");
+            }
+        }
     }
 }

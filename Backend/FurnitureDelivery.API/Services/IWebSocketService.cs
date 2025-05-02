@@ -83,5 +83,14 @@ namespace FurnitureDelivery.API.Services
         /// <param name="message">The message to send</param>
         /// <returns>A task representing the asynchronous operation</returns>
         Task SendToConnection(string connectionId, object message);
+        
+        /// <summary>
+        /// Broadcasts a driver location update to all connections tracking the driver's deliveries
+        /// </summary>
+        /// <param name="driverId">The driver ID</param>
+        /// <param name="latitude">The current latitude</param>
+        /// <param name="longitude">The current longitude</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        Task BroadcastLocationUpdate(int driverId, double latitude, double longitude);
     }
 }
