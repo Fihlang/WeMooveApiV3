@@ -152,8 +152,8 @@ namespace FurnitureDelivery.API.Controllers
             return Ok(ApiResponse<DeliveryResponseDTO>.SuccessResponse(DeliveryResponseDTO));
         }
 
-        [HttpPost]
-        public async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> CreateDelivery(DeliveryResponseDTO request)
+        [HttpPost("furniture")]
+        public async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> CreateFurnitureDelivery(DeliveryResponseDTO request)
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -168,20 +168,88 @@ namespace FurnitureDelivery.API.Controllers
             {
                 return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Customer not found"));
             }
+            
+            // Set delivery and vehicle type
+            request.DeliveryType = "furniture";
+            request.RequiredVehicleType = "truck";
 
             // Verify furniture items
             foreach (var item in request.Items)
             {
-                var furniture = await _dbContext.Furniture.FindAsync(item.FurnitureId);
+                // Set item type
+                item.ItemType = "furniture";
+                
+                if (!item.FurnitureId.HasValue)
+                {
+                    return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("All items must have a valid FurnitureId"));
+                }
+                
+                var furniture = await _dbContext.Furniture.FindAsync(item.FurnitureId.Value);
                 if (furniture == null)
                 {
                     return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse($"Furniture with ID {item.FurnitureId} not found"));
                 }
             }
+            
+            // Continue with the rest of the delivery creation (using shared code)
+            return await CreateDelivery(request);
+        }
+            
+        [HttpPost("parcel")]
+        public async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> CreateParcelDelivery(DeliveryResponseDTO request)
+        {
+            // Get user ID from token claims
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+            {
+                return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Invalid user ID in token"));
+            }
 
+            // Get customer
+            var customer = await _dbContext.Users.FindAsync(request.CustomerId);
+            if (customer == null)
+            {
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Customer not found"));
+            }
+            
+            // Set delivery and vehicle type for parcel
+            request.DeliveryType = "parcel";
+            request.RequiredVehicleType = "motorbike";
+            
+            // Create packages for delivery
+            foreach (var item in request.Items)
+            {
+                // Set item type
+                item.ItemType = "package";
+                
+                if (item.FurnitureId.HasValue)
+                {
+                    return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Parcel deliveries should not contain furniture items"));
+                }
+                
+                if (item.Package == null)
+                {
+                    return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("All parcel items must have package details"));
+                }
+            }
+            
+            // Continue with the rest of the delivery creation (using shared code)
+            return await CreateDelivery(request);
+        }
+            
+        // Private helper method to create deliveries (shared by both furniture and parcel endpoints)
+        private async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> CreateDelivery(DeliveryResponseDTO request)
+        {
             // Generate tracking number
             var trackingNumber = GenerateTrackingNumber();
 
+            // Get customer for notification
+            var customer = await _dbContext.Users.FindAsync(request.CustomerId);
+            if (customer == null)
+            {
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Customer not found"));
+            }
+            
             // Create delivery
             var delivery = new Delivery
             {
@@ -193,6 +261,8 @@ namespace FurnitureDelivery.API.Controllers
                 DestinationAddress = request.DestinationAddress,
                 TrackingNumber = trackingNumber,
                 Notes = request.Notes,
+                DeliveryType = request.DeliveryType, // New field
+                RequiredVehicleType = request.RequiredVehicleType, // New field
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -206,10 +276,42 @@ namespace FurnitureDelivery.API.Controllers
                 var item = new DeliveryItem
                 {
                     DeliveryId = delivery.Id,
-                    FurnitureId = itemRequest.FurnitureId,
+                    ItemType = itemRequest.ItemType,
                     Quantity = itemRequest.Quantity,
                     SpecialHandling = itemRequest.SpecialHandling
                 };
+                
+                // Set the appropriate ID based on item type
+                if (itemRequest.ItemType == "furniture" && itemRequest.FurnitureId.HasValue)
+                {
+                    item.FurnitureId = itemRequest.FurnitureId;
+                }
+                else if (itemRequest.ItemType == "package" && itemRequest.PackageId.HasValue)
+                {
+                    item.PackageId = itemRequest.PackageId;
+                }
+                else if (itemRequest.ItemType == "package" && itemRequest.Package != null)
+                {
+                    // Create a new package if one doesn't exist yet
+                    var package = new Package
+                    {
+                        Name = itemRequest.Package.Name,
+                        Description = itemRequest.Package.Description,
+                        Weight = itemRequest.Package.Weight,
+                        Dimensions = itemRequest.Package.Dimensions,
+                        IsFragile = itemRequest.Package.IsFragile,
+                        RequiresRefrigeration = itemRequest.Package.RequiresRefrigeration,
+                        Value = itemRequest.Package.Value,
+                        CustomerId = request.CustomerId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    
+                    _dbContext.Packages.Add(package);
+                    await _dbContext.SaveChangesAsync();
+                    
+                    // Assign the newly created package ID to the delivery item
+                    item.PackageId = package.Id;
+                }
 
                 _dbContext.DeliveryItems.Add(item);
             }
@@ -259,7 +361,9 @@ namespace FurnitureDelivery.API.Controllers
             var createdDelivery = await _dbContext.Deliveries
                 .Include(d => d.Customer)
                 .Include(d => d.Items)
-                .ThenInclude(i => i.Furniture)
+                .ThenInclude(i => i.Furniture)  // Include furniture details
+                .Include(d => d.Items)  
+                .ThenInclude(i => i.Package)  // Include package details
                 .Include(d => d.Payment)
                 .FirstOrDefaultAsync(d => d.Id == delivery.Id);
 

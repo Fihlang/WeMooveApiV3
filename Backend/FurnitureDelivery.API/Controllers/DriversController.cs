@@ -101,14 +101,27 @@ namespace FurnitureDelivery.API.Controllers
                 return BadRequest(ApiResponse<List<DriverDTO>>.ErrorResponse("Radius must be between 0.1 and 100 km"));
             }
 
-            // Get all available and verified drivers with location data
-            var drivers = await _dbContext.Drivers
+            // Build query for drivers
+            var driversQuery = _dbContext.Drivers
                 .Include(d => d.User)
-                .Where(d => d.IsAvailable && 
-                       d.VerificationStatus == "verified" && 
+                .Where(d => d.VerificationStatus == "verified" && 
                        d.CurrentLatitude != null && 
-                       d.CurrentLongitude != null)
-                .ToListAsync();
+                       d.CurrentLongitude != null);
+                
+            // Apply availability filter if requested
+            if (request.OnlyAvailable)
+            {
+                driversQuery = driversQuery.Where(d => d.IsAvailable);
+            }
+            
+            // Apply vehicle type filter if provided
+            if (!string.IsNullOrEmpty(request.VehicleType))
+            {
+                driversQuery = driversQuery.Where(d => d.VehicleType == request.VehicleType);
+            }
+            
+            // Execute query
+            var drivers = await driversQuery.ToListAsync();
 
             // Filter drivers by distance
             var nearbyDrivers = drivers
