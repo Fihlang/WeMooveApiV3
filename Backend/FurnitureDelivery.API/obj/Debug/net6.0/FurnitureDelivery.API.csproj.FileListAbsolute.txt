@@ -5,3 +5,5 @@
 /Users/zakithidlomo/Documents/GitHub/WeMoove-WebApp/Backend/FurnitureDelivery.API/obj/Debug/net6.0/FurnitureDelivery.API.csproj.CoreCompileInputs.cache
 /Users/zakithidlomo/Documents/GitHub/WeMoove-WebApp/Backend/FurnitureDelivery.API/obj/Debug/net6.0/FurnitureDelivery.API.MvcApplicationPartsAssemblyInfo.cs
 /Users/zakithidlomo/Documents/GitHub/WeMoove-WebApp/Backend/FurnitureDelivery.API/obj/Debug/net6.0/FurnitureDelivery.API.MvcApplicationPartsAssemblyInfo.cache
+/home/runner/workspace/Backend/FurnitureDelivery.API/obj/Debug/net6.0/FurnitureDelivery.API.dll
+/home/runner/workspace/Backend/FurnitureDelivery.API/obj/Debug/net6.0/FurnitureDelivery.API.pdb
