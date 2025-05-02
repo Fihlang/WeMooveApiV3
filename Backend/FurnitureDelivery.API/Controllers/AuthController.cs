@@ -148,7 +148,9 @@ namespace FurnitureDelivery.API.Controllers
                 CurrentLatitude = null,
                 CurrentLongitude = null,
                 VerificationStatus = "pending",
-                Documents = request.Documents
+                Documents = request.Documents,
+                // Set SupportsParcel based on vehicle type (motorbike drivers can deliver parcels)
+                SupportsParcel = request.VehicleType.ToLower().Contains("motorbike") || request.VehicleType.ToLower().Contains("motorcycle")
             };
 
             _dbContext.Drivers.Add(driver);
@@ -243,7 +245,8 @@ namespace FurnitureDelivery.API.Controllers
                     IsAvailable = user.Driver.IsAvailable,
                     CurrentLatitude = user.Driver.CurrentLatitude,
                     CurrentLongitude = user.Driver.CurrentLongitude,
-                    VerificationStatus = user.Driver.VerificationStatus
+                    VerificationStatus = user.Driver.VerificationStatus,
+                    SupportsParcel = user.Driver.SupportsParcel
                 };
             }
 

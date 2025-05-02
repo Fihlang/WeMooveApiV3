@@ -47,7 +47,8 @@ namespace FurnitureDelivery.API.Controllers
                 IsAvailable = d.IsAvailable,
                 CurrentLatitude = d.CurrentLatitude,
                 CurrentLongitude = d.CurrentLongitude,
-                VerificationStatus = d.VerificationStatus
+                VerificationStatus = d.VerificationStatus,
+                SupportsParcel = d.SupportsParcel
             }).ToList();
 
             return Ok(ApiResponse<List<DriverDTO>>.SuccessResponse(driverDTOs));
@@ -76,7 +77,8 @@ namespace FurnitureDelivery.API.Controllers
                 IsAvailable = driver.IsAvailable,
                 CurrentLatitude = driver.CurrentLatitude,
                 CurrentLongitude = driver.CurrentLongitude,
-                VerificationStatus = driver.VerificationStatus
+                VerificationStatus = driver.VerificationStatus,
+                SupportsParcel = driver.SupportsParcel
             };
 
             return Ok(ApiResponse<DriverDTO>.SuccessResponse(driverDTO));
@@ -149,7 +151,8 @@ namespace FurnitureDelivery.API.Controllers
                 IsAvailable = d.IsAvailable,
                 CurrentLatitude = d.CurrentLatitude,
                 CurrentLongitude = d.CurrentLongitude,
-                VerificationStatus = d.VerificationStatus
+                VerificationStatus = d.VerificationStatus,
+                SupportsParcel = d.SupportsParcel
             }).ToList();
 
             return Ok(ApiResponse<List<DriverDTO>>.SuccessResponse(driverDTOs));
