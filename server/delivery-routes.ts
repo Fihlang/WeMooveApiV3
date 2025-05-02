@@ -171,63 +171,95 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced endpoint for driver location updates with more tracking data
   app.put('/api/drivers/:id/location', async (req: Request, res: Response) => {
     try {
       const driverId = parseInt(req.params.id);
-      const { latitude, longitude, heading, speed } = req.body;
+      const { latitude, longitude, heading, speed, accuracy, altitude, timestamp } = req.body;
       
       if (!latitude || !longitude) {
         return res.status(400).json({ error: 'Latitude and longitude are required' });
       }
       
+      // Update driver location in database
       const driver = await deliveryStorage.updateDriverLocation(
         driverId, 
         parseFloat(latitude), 
         parseFloat(longitude),
         heading ? parseFloat(heading) : undefined,
-        speed ? parseFloat(speed) : undefined
+        speed ? parseFloat(speed) : undefined,
+        accuracy ? parseFloat(accuracy) : undefined,
+        altitude ? parseFloat(altitude) : undefined
       );
       
-      // If the driver has an active delivery, broadcast location update to the customer
+      // If the driver has an active delivery, calculate ETA and broadcast location update
       const activeDeliveries = await deliveryStorage.getActiveDeliveriesByDriverId(driverId);
       if (activeDeliveries.length > 0) {
         const currentDelivery = activeDeliveries[0];
         
-        // Calculate ETA if we have both coordinates for pickup/dropoff
+        // Calculate ETA and remaining distance
         let estimatedArrivalTime = null;
-        if (speed && currentDelivery) {
-          const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(currentDelivery.id);
-          if (deliveryWithDetails) {
-            const destination = currentDelivery.status === 'driver_en_route_to_pickup' 
-              ? deliveryWithDetails.pickupAddress 
-              : deliveryWithDetails.dropoffAddress;
+        let distanceRemaining = null;
+        let etaMinutes = null;
+        let nextWaypoint = null;
+        
+        const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(currentDelivery.id);
+        if (deliveryWithDetails) {
+          // Determine which address we're heading to based on delivery status
+          const destination = ['pending', 'accepted', 'driver_en_route_to_pickup', 'at_pickup', 'loading'].includes(currentDelivery.status)
+            ? deliveryWithDetails.pickupAddress 
+            : deliveryWithDetails.dropoffAddress;
+            
+          if (destination && destination.latitude && destination.longitude) {
+            // Calculate distance using Haversine formula
+            const R = 6371; // Earth's radius in km
+            const dLat = (parseFloat(destination.latitude) - parseFloat(latitude)) * Math.PI / 180;
+            const dLon = (parseFloat(destination.longitude) - parseFloat(longitude)) * Math.PI / 180;
+            const a = 
+              Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(parseFloat(latitude) * Math.PI / 180) * Math.cos(parseFloat(destination.latitude) * Math.PI / 180) * 
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            distanceRemaining = R * c; // Distance in km
+            
+            // Calculate ETA based on current speed or average speed by vehicle type
+            if (speed && parseFloat(speed) > 0) {
+              // Convert km/h to minutes
+              etaMinutes = Math.round((distanceRemaining / parseFloat(speed)) * 60);
               
-            if (destination && destination.latitude && destination.longitude) {
-              // Calculate distance using Haversine formula
-              const R = 6371; // Earth's radius in km
-              const dLat = (parseFloat(destination.latitude) - latitude) * Math.PI / 180;
-              const dLon = (parseFloat(destination.longitude) - longitude) * Math.PI / 180;
-              const a = 
-                Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(latitude * Math.PI / 180) * Math.cos(parseFloat(destination.latitude) * Math.PI / 180) * 
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              const distance = R * c; // Distance in km
+              // Ensure minimum ETA of 1 minute if very close
+              if (etaMinutes < 1) etaMinutes = 1;
               
-              // Calculate ETA based on current speed (km/h)
-              if (speed > 0) {
-                const travelTimeHours = distance / speed;
-                estimatedArrivalTime = new Date(Date.now() + travelTimeHours * 60 * 60 * 1000);
-                
-                // Update the delivery with the estimated arrival time
-                await db.update(schema.deliveries)
-                  .set({ 
-                    estimatedDeliveryTime: estimatedArrivalTime,
-                    updatedAt: new Date()
-                  })
-                  .where(eq(schema.deliveries.id, currentDelivery.id));
-              }
+              // Calculate actual arrival time
+              estimatedArrivalTime = new Date(Date.now() + etaMinutes * 60 * 1000);
+              
+              // Update the delivery with the estimated arrival time
+              await db.update(schema.deliveries)
+                .set({ 
+                  estimatedDeliveryTime: estimatedArrivalTime,
+                  updatedAt: new Date()
+                })
+                .where(eq(schema.deliveries.id, currentDelivery.id));
+            } else {
+              // Use average speed based on vehicle type
+              const avgSpeed = driver.vehicleType === 'motorbike' ? 30 : 25; // km/h
+              etaMinutes = Math.round((distanceRemaining / avgSpeed) * 60);
+              
+              // Ensure minimum ETA of 1 minute if very close
+              if (etaMinutes < 1) etaMinutes = 1;
+              
+              estimatedArrivalTime = new Date(Date.now() + etaMinutes * 60 * 1000);
             }
+            
+            // Create next waypoint data
+            nextWaypoint = {
+              latitude: parseFloat(destination.latitude),
+              longitude: parseFloat(destination.longitude),
+              address: `${destination.addressLine1}, ${destination.city}`,
+              type: ['pending', 'accepted', 'driver_en_route_to_pickup', 'at_pickup', 'loading'].includes(currentDelivery.status) 
+                ? 'pickup' 
+                : 'dropoff'
+            };
           }
         }
         
@@ -237,20 +269,239 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
           payload: {
             deliveryId: currentDelivery.id,
             driverId,
-            latitude,
-            longitude,
-            heading,
-            speed,
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            heading: heading ? parseFloat(heading) : null,
+            speed: speed ? parseFloat(speed) : null,
+            accuracy: accuracy ? parseFloat(accuracy) : null,
+            altitude: altitude ? parseFloat(altitude) : null,
             estimatedArrivalTime: estimatedArrivalTime ? estimatedArrivalTime.toISOString() : null,
-            timestamp: new Date().toISOString()
+            etaMinutes,
+            distanceRemaining,
+            distanceText: distanceRemaining ? `${distanceRemaining.toFixed(1)} km` : null,
+            etaText: etaMinutes ? `${etaMinutes} min` : null,
+            nextWaypoint,
+            timestamp: timestamp || new Date().toISOString()
           }
         });
       }
       
-      res.json(driver);
+      res.json({
+        ...driver,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        heading: heading ? parseFloat(heading) : null,
+        speed: speed ? parseFloat(speed) : null,
+        accuracy: accuracy ? parseFloat(accuracy) : null
+      });
     } catch (error) {
       console.error('Error updating driver location:', error);
       res.status(500).json({ error: 'Failed to update driver location' });
+    }
+  });
+  
+  // New endpoint for getting driver's current location and ETA for a specific delivery
+  app.get('/api/deliveries/:id/tracking', async (req: Request, res: Response) => {
+    try {
+      const deliveryId = parseInt(req.params.id);
+      
+      // Get delivery with driver details
+      const delivery = await deliveryStorage.getDeliveryWithItems(deliveryId);
+      if (!delivery) {
+        return res.status(404).json({ error: 'Delivery not found' });
+      }
+      
+      if (!delivery.driverId) {
+        return res.status(200).json({ 
+          deliveryId,
+          status: delivery.status,
+          driverAssigned: false,
+          message: 'No driver assigned to this delivery yet'
+        });
+      }
+      
+      // Get driver with location data
+      const driver = await deliveryStorage.getDriver(delivery.driverId);
+      if (!driver) {
+        return res.status(404).json({ error: 'Driver not found' });
+      }
+      
+      // If we don't have location data yet
+      if (!driver.latitude || !driver.longitude) {
+        return res.status(200).json({
+          deliveryId,
+          driverId: driver.id,
+          driverName: driver.user?.firstName + ' ' + driver.user?.lastName,
+          vehicleInfo: {
+            type: driver.vehicleType,
+            make: driver.vehicleMake,
+            model: driver.vehicleModel,
+            color: driver.vehicleColor,
+            licensePlate: driver.licensePlate
+          },
+          trackingAvailable: false,
+          driverAssigned: true,
+          status: delivery.status,
+          message: 'Driver assigned but location tracking not yet available'
+        });
+      }
+      
+      // Determine which address we're heading to based on delivery status
+      const isGoingToPickup = ['pending', 'accepted', 'driver_en_route_to_pickup', 'at_pickup', 'loading'].includes(delivery.status);
+      const targetAddress = isGoingToPickup ? delivery.pickupAddress : delivery.dropoffAddress;
+      
+      let eta = null;
+      let distanceRemaining = null;
+      let nextWaypoint = null;
+      
+      if (targetAddress && targetAddress.latitude && targetAddress.longitude) {
+        // Calculate distance in kilometers using Haversine formula
+        const R = 6371; // Earth's radius in kilometers
+        const dLat = (parseFloat(targetAddress.latitude) - parseFloat(driver.latitude)) * Math.PI / 180;
+        const dLng = (parseFloat(targetAddress.longitude) - parseFloat(driver.longitude)) * Math.PI / 180;
+        const a = 
+          Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(parseFloat(driver.latitude) * Math.PI / 180) * Math.cos(parseFloat(targetAddress.latitude) * Math.PI / 180) * 
+          Math.sin(dLng/2) * Math.sin(dLng/2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        distanceRemaining = R * c;
+        
+        // Estimate ETA based on distance and current speed
+        // If speed is available and > 0, use it for ETA calculation
+        if (driver.speed && parseFloat(driver.speed) > 0) {
+          // Convert speed from km/h to km/min and calculate ETA in minutes
+          eta = Math.round(distanceRemaining / (parseFloat(driver.speed) / 60));
+          
+          // If ETA is less than 1 minute, set it to 1
+          if (eta < 1) eta = 1;
+        } else {
+          // No speed data, use average speed based on vehicle type
+          const avgSpeed = driver.vehicleType === 'motorbike' ? 30 : 25; // km/h
+          eta = Math.round(distanceRemaining / (avgSpeed / 60));
+        }
+        
+        nextWaypoint = {
+          latitude: parseFloat(targetAddress.latitude),
+          longitude: parseFloat(targetAddress.longitude),
+          address: `${targetAddress.addressLine1}, ${targetAddress.city}`,
+          type: isGoingToPickup ? 'pickup' : 'dropoff'
+        };
+      }
+      
+      // Get origin and destination for the map
+      const origin = {
+        latitude: parseFloat(driver.latitude),
+        longitude: parseFloat(driver.longitude),
+        address: 'Current driver location'
+      };
+      
+      // Define appropriate status messages based on delivery status
+      let statusMessage = '';
+      let statusPhase = '';
+      
+      switch(delivery.status) {
+        case 'pending':
+          statusMessage = 'Your delivery is being prepared';
+          statusPhase = 'preparation';
+          break;
+        case 'accepted':
+          statusMessage = 'Driver has accepted your delivery';
+          statusPhase = 'accepted';
+          break;
+        case 'driver_en_route_to_pickup':
+          statusMessage = 'Driver is on the way to pickup your items';
+          statusPhase = 'to_pickup';
+          break;
+        case 'at_pickup':
+          statusMessage = 'Driver has arrived at the pickup location';
+          statusPhase = 'at_pickup';
+          break;
+        case 'loading':
+          statusMessage = 'Your items are being loaded';
+          statusPhase = 'loading';
+          break;
+        case 'in_transit':
+          statusMessage = 'Your items are on the way to the destination';
+          statusPhase = 'in_transit';
+          break;
+        case 'arriving':
+          statusMessage = 'Driver is arriving at your location soon';
+          statusPhase = 'arriving';
+          break;
+        case 'at_dropoff':
+          statusMessage = 'Driver has arrived at the destination';
+          statusPhase = 'at_dropoff';
+          break;
+        case 'unloading':
+          statusMessage = 'Your items are being unloaded';
+          statusPhase = 'unloading';
+          break;
+        case 'completed':
+          statusMessage = 'Your delivery has been completed';
+          statusPhase = 'completed';
+          break;
+        case 'cancelled':
+          statusMessage = 'This delivery has been cancelled';
+          statusPhase = 'cancelled';
+          break;
+        default:
+          statusMessage = `Status: ${delivery.status}`;
+          statusPhase = 'unknown';
+      }
+      
+      // Return comprehensive tracking data
+      res.json({
+        deliveryId,
+        status: delivery.status,
+        statusMessage,
+        statusPhase,
+        driverAssigned: true,
+        trackingAvailable: true,
+        driver: {
+          id: driver.id,
+          name: driver.user?.firstName + ' ' + driver.user?.lastName,
+          phone: driver.user?.phone,
+          rating: driver.rating || 0,
+          ratingCount: driver.ratingCount || 0,
+          photo: driver.user?.photoUrl,
+          vehicle: {
+            type: driver.vehicleType,
+            make: driver.vehicleMake,
+            model: driver.vehicleModel,
+            color: driver.vehicleColor,
+            licensePlate: driver.licensePlate,
+            year: driver.vehicleYear
+          }
+        },
+        tracking: {
+          currentLocation: {
+            latitude: parseFloat(driver.latitude),
+            longitude: parseFloat(driver.longitude),
+            heading: driver.heading ? parseFloat(driver.heading) : null,
+            speed: driver.speed ? parseFloat(driver.speed) : null,
+            accuracy: driver.locationAccuracy ? parseFloat(driver.locationAccuracy) : null,
+            lastUpdated: driver.locationUpdatedAt
+          },
+          destination: nextWaypoint,
+          origin,
+          eta,
+          etaText: eta ? `${eta} minutes` : 'Calculating...',
+          distanceRemaining,
+          distanceText: distanceRemaining ? `${distanceRemaining.toFixed(1)} km` : 'Calculating...',
+          estimatedArrivalTime: delivery.estimatedDeliveryTime
+        },
+        delivery: {
+          scheduledPickupTime: delivery.scheduledPickupTime,
+          estimatedDeliveryTime: delivery.estimatedDeliveryTime,
+          price: delivery.price,
+          currency: 'ZAR',
+          requiredVehicleType: delivery.requiredVehicleType,
+          specialInstructions: delivery.specialInstructions
+        }
+      });
+    } catch (error) {
+      console.error('Error getting driver location:', error);
+      res.status(500).json({ error: 'Failed to get driver location' });
     }
   });
   
