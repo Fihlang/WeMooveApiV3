@@ -203,6 +203,41 @@ class WebSocketService {
       this.broadcastToDelivery(deliveryId, message);
     });
   }
+
+  // Broadcast delivery status update to all clients tracking the delivery
+  public broadcastDeliveryStatusUpdate(deliveryId: number, status: string) {
+    const statusDisplay = this.getStatusDisplayName(status);
+    
+    const message: WebSocketMessage = {
+      type: 'delivery_status_update',
+      payload: {
+        deliveryId,
+        status,
+        statusDisplay,
+        updatedAt: new Date().toISOString()
+      }
+    };
+
+    // Broadcast to all clients subscribed to this delivery
+    this.broadcastToDelivery(deliveryId, message);
+    
+    console.log(`Delivery status update for delivery ${deliveryId} broadcast: ${status} (${statusDisplay})`);
+  }
+  
+  // Get user-friendly display name for status codes
+  private getStatusDisplayName(status: string): string {
+    switch (status) {
+      case 'pending': return 'Pending';
+      case 'accepted': return 'Accepted';
+      case 'assigned': return 'Assigned to Driver';
+      case 'picked_up': return 'Picked Up';
+      case 'in_transit': return 'In Transit';
+      case 'delivered': return 'Delivered';
+      case 'completed': return 'Completed';
+      case 'cancelled': return 'Cancelled';
+      default: return status;
+    }
+  }
 }
 
 // Create and export the WebSocket service

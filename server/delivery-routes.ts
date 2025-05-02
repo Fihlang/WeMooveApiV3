@@ -1121,6 +1121,9 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
       const delivery = await deliveryStorage.updateDeliveryStatus(deliveryId, status);
       
       // Notify all clients subscribed to this delivery about the status change
+      wsService.broadcastDeliveryStatusUpdate(deliveryId, status);
+      
+      // Also use the previous implementation to keep backwards compatibility
       wsService.broadcastToDelivery(deliveryId, {
         type: 'delivery_status_updated',
         payload: {
