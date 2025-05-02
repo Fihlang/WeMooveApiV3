@@ -15,7 +15,10 @@ namespace FurnitureDelivery.API.Models
         
         [Required]
         public string PasswordHash { get; set; }
-        
+
+         [Required]
+        public string PasswordSalt { get; set; }
+
         [Required]
         public string Salt { get; set; }
         

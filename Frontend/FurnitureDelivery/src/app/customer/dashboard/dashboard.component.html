@@ -1,0 +1,123 @@
+<div class="dashboard-container">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <h1>Welcome, {{ currentUser?.firstName }}</h1>
+    <p>Manage your furniture deliveries and track shipments in real-time</p>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="dashboard-actions">
+    <button class="btn btn-primary" (click)="createNewDelivery()">
+      <i class="bi bi-plus-lg"></i> New Delivery
+    </button>
+    <button class="btn btn-outline-primary" (click)="viewFurnitureCatalog()">
+      <i class="bi bi-grid"></i> Browse Furniture
+    </button>
+  </div>
+
+  <!-- Alerts -->
+  <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+
+  <!-- Loading spinner -->
+  <div *ngIf="loading" class="text-center p-4">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Dashboard content -->
+  <div *ngIf="!loading" class="dashboard-content">
+    <!-- Active deliveries -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3>Active Deliveries</h3>
+        <span class="badge bg-primary">{{ activeDeliveries.length }}</span>
+      </div>
+      <div class="card-body">
+        <div *ngIf="activeDeliveries.length === 0" class="text-center p-4">
+          <p>You don't have any active deliveries.</p>
+          <button class="btn btn-primary" (click)="createNewDelivery()">Schedule a Delivery</button>
+        </div>
+        <div *ngIf="activeDeliveries.length > 0" class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let delivery of activeDeliveries">
+                <td>#{{ delivery.id }}</td>
+                <td>{{ delivery.pickupAddress }}</td>
+                <td>{{ delivery.destinationAddress }}</td>
+                <td>{{ formatDate(delivery.scheduledDate) }}</td>
+                <td>
+                  <span class="badge bg-{{ getStatusClass(delivery.status) }}">
+                    {{ getStatusText(delivery.status) }}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-primary" (click)="trackDelivery(delivery.id)">
+                    <i class="bi bi-truck"></i> Track
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Completed deliveries -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3>Delivery History</h3>
+        <span class="badge bg-secondary">{{ completedDeliveries.length }}</span>
+      </div>
+      <div class="card-body">
+        <div *ngIf="completedDeliveries.length === 0" class="text-center p-4">
+          <p>No delivery history yet.</p>
+        </div>
+        <div *ngIf="completedDeliveries.length > 0" class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Price</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let delivery of completedDeliveries">
+                <td>#{{ delivery.id }}</td>
+                <td>{{ delivery.pickupAddress }}</td>
+                <td>{{ delivery.destinationAddress }}</td>
+                <td>{{ formatDate(delivery.scheduledDate) }}</td>
+                <td>
+                  <span class="badge bg-{{ getStatusClass(delivery.status) }}">
+                    {{ getStatusText(delivery.status) }}
+                  </span>
+                </td>
+                <td>${{ delivery.totalPrice.toFixed(2) }}</td>
+                <td>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="trackDelivery(delivery.id)">
+                    <i class="bi bi-file-text"></i> Details
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

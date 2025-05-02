@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using FurnitureDelivery.API.Data;
 using FurnitureDelivery.API.DTOs;
-using FurnitureDelivery.API.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace FurnitureDelivery.API.Services
@@ -215,7 +214,8 @@ namespace FurnitureDelivery.API.Services
                 }
             }
         }
-        
+
+                
         public async Task BroadcastLocationUpdate(int driverId, double latitude, double longitude)
         {
             try
@@ -265,7 +265,7 @@ namespace FurnitureDelivery.API.Services
                 _logger.LogError(ex, $"Error broadcasting location update for driver {driverId}");
             }
         }
-        
+    
         public async Task SendNewMessage(MessageDTO message)
         {
             try
@@ -333,95 +333,15 @@ namespace FurnitureDelivery.API.Services
                 _logger.LogError(ex, $"Error sending message from user {message.SenderId} to user {message.RecipientId}");
             }
         }
-        
-        public async Task<int> NotifyNewMessage(int messageId)
-        {
-            try
-            {
-                var message = await _dbContext.Messages
-                    .Include(m => m.Sender)
-                    .Include(m => m.Recipient)
-                    .Include(m => m.Delivery)
-                    .FirstOrDefaultAsync(m => m.Id == messageId);
 
-                if (message == null)
-                {
-                    throw new KeyNotFoundException($"Message with ID {messageId} not found");
-                }
-
-                // Create a notification for the recipient
-                var notification = new Models.Notification
-                {
-                    UserId = message.RecipientId,
-                    Type = "message",
-                    Title = "New Message",
-                    Message = $"New message from {message.Sender.FirstName} {message.Sender.LastName}",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow,
-                    RelatedEntityType = "message",
-                    RelatedEntityId = message.Id
-                };
-
-                _dbContext.Notifications.Add(notification);
-                await _dbContext.SaveChangesAsync();
-
-                // Create MessageDTO from message entity
-                var messageDto = new MessageDTO
-                {
-                    Id = message.Id,
-                    DeliveryId = message.DeliveryId,
-                    SenderId = message.SenderId,
-                    SenderType = message.SenderType,
-                    SenderName = $"{message.Sender.FirstName} {message.Sender.LastName}",
-                    RecipientId = message.RecipientId,
-                    RecipientName = $"{message.Recipient.FirstName} {message.Recipient.LastName}",
-                    Content = message.Content,
-                    IsRead = message.IsRead,
-                    CreatedAt = message.CreatedAt
-                };
-
-                // Send message to the recipient via WebSocket
-                await SendToUser(message.RecipientId, messageDto);
-
-                // Also send to all connections tracking this delivery
-                await SendToDelivery(message.DeliveryId, messageDto);
-
-                // Create notification DTO for WebSocket
-                var notificationDto = new NotificationDTO
-                {
-                    Id = notification.Id,
-                    UserId = notification.UserId,
-                    Type = notification.Type,
-                    Title = notification.Title,
-                    Message = notification.Message,
-                    IsRead = notification.IsRead,
-                    CreatedAt = notification.CreatedAt,
-                    RelatedEntityType = notification.RelatedEntityType,
-                    RelatedEntityId = notification.RelatedEntityId.Value
-                };
-
-                // Send notification through WebSocket
-                await SendToUser(message.RecipientId, notificationDto);
-
-                _logger.LogInformation($"Notification created for message {messageId} sent to user {message.RecipientId}");
-                
-                return notification.Id;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error creating notification for message {messageId}");
-                throw;
-            }
-        }
-        
-        public async Task BroadcastToDrivers(WebSocketMessage message)
+          public async Task BroadcastToDrivers(WebSocketMessage message)
         {
             try
             {
                 // Get all drivers
                 var drivers = await _dbContext.Drivers
                     .Include(d => d.User)
-                    .Where(d => d.IsAvailable)
+                    .Where(d => d.IsOnline)
                     .ToListAsync();
                 
                 foreach (var driver in drivers)
@@ -439,7 +359,8 @@ namespace FurnitureDelivery.API.Services
                 _logger.LogError(ex, $"Error broadcasting message to drivers, type: {message.Type}");
             }
         }
-        
+
+                
         public async Task BroadcastDeliveryStatusUpdate(int deliveryId, string status)
         {
             try
@@ -460,10 +381,10 @@ namespace FurnitureDelivery.API.Services
                 var statusUpdate = new DeliveryStatusUpdateDTO
                 {
                     DeliveryId = deliveryId,
-                    Status = status,
                     UpdatedAt = DateTime.UtcNow,
-                    StatusDisplay = GetStatusDisplayName(status)
+                    Status = GetStatusDisplayName(status)
                 };
+            
                 
                 // Send to connections tracking this delivery
                 await SendToDelivery(deliveryId, statusUpdate);
@@ -523,8 +444,8 @@ namespace FurnitureDelivery.API.Services
                 _logger.LogError(ex, $"Error broadcasting delivery status update for delivery {deliveryId}");
             }
         }
-        
-        private string GetStatusDisplayName(string status)
+
+                 private string GetStatusDisplayName(string status)
         {
             return status switch
             {
@@ -538,34 +459,6 @@ namespace FurnitureDelivery.API.Services
                 "cancelled" => "Cancelled",
                 _ => status
             };
-        }
-        
-        public async Task BroadcastToDrivers(WebSocketMessage message)
-        {
-            try
-            {
-                // Get all available drivers
-                var availableDrivers = await _dbContext.Drivers
-                    .Where(d => d.IsAvailable) // Using IsAvailable property instead of IsOnline
-                    .Include(d => d.User)
-                    .ToListAsync();
-                
-                _logger.LogInformation($"Broadcasting to {availableDrivers.Count} available drivers");
-                
-                foreach (var driver in availableDrivers)
-                {
-                    if (driver.User != null)
-                    {
-                        await SendToUser(driver.User.Id, message.Data);
-                    }
-                }
-                
-                _logger.LogInformation($"Message broadcast to {availableDrivers.Count} drivers, type: {message.Type}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error broadcasting message to drivers");
-            }
-        }
+    }
     }
 }

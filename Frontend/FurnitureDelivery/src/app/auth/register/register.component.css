@@ -1,0 +1,56 @@
+.invalid-feedback {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 80%;
+  color: #dc3545;
+}
+
+.is-invalid {
+  border-color: #dc3545;
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.2em;
+}
+
+.card {
+  border-radius: 0.5rem;
+}
+
+.card-header {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+.form-control:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-check {
+  margin-right: 1rem;
+  padding-left: 1.5rem;
+}
+
+.form-check-input {
+  margin-top: 0.3rem;
+  margin-left: -1.5rem;
+}
+
+.form-check-label {
+  margin-bottom: 0;
+}
+
+.me-4 {
+  margin-right: 1.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .col-md-6 {
+    margin-bottom: 1.5rem;
+  }
+}

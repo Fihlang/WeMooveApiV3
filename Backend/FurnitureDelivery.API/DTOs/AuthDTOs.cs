@@ -59,6 +59,12 @@ namespace FurnitureDelivery.API.DTOs
         [Required]
         [JsonPropertyName("capacity")]
         public string Capacity { get; set; } = "";
+
+        [Required]
+        [JsonPropertyName("documents")]
+        public string Documents { get; set; } = "";
+
+        
     }
     
     // Login Request DTO
@@ -112,6 +118,11 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("expiresAt")]
         public DateTime ExpiresAt { get; set; }
+
+        public static implicit operator AuthResponseDTO(DriverDTO v)
+        {
+            throw new NotImplementedException();
+        }
     }
     
     // Password Reset Request DTO

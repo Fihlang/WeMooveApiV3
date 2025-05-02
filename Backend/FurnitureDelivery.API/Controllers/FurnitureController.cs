@@ -33,7 +33,7 @@ namespace FurnitureDelivery.API.Controllers
                 Name = f.Name,
                 Description = f.Description,
                 Weight = f.Weight,
-                Dimensions = f.Dimensions,
+                Dimensions = f.DimensionsJson,
                 Category = f.Category,
                 ImageUrl = f.ImageUrl
             }).ToList();
@@ -57,7 +57,7 @@ namespace FurnitureDelivery.API.Controllers
                 Name = furniture.Name,
                 Description = furniture.Description,
                 Weight = furniture.Weight,
-                Dimensions = furniture.Dimensions,
+                Dimensions = furniture.DimensionsJson,
                 Category = furniture.Category,
                 ImageUrl = furniture.ImageUrl
             };
@@ -79,7 +79,7 @@ namespace FurnitureDelivery.API.Controllers
                 Name = f.Name,
                 Description = f.Description,
                 Weight = f.Weight,
-                Dimensions = f.Dimensions,
+                Dimensions = f.DimensionsJson,
                 Category = f.Category,
                 ImageUrl = f.ImageUrl
             }).ToList();
@@ -118,7 +118,7 @@ namespace FurnitureDelivery.API.Controllers
                 Name = furnitureDTO.Name,
                 Description = furnitureDTO.Description,
                 Weight = furnitureDTO.Weight,
-                Dimensions = furnitureDTO.Dimensions,
+                DimensionsJson = furnitureDTO.Dimensions,
                 Category = furnitureDTO.Category,
                 ImageUrl = furnitureDTO.ImageUrl
             };
@@ -151,7 +151,7 @@ namespace FurnitureDelivery.API.Controllers
             furniture.Name = furnitureDTO.Name;
             furniture.Description = furnitureDTO.Description;
             furniture.Weight = furnitureDTO.Weight;
-            furniture.Dimensions = furnitureDTO.Dimensions;
+            furniture.DimensionsJson = furnitureDTO.Dimensions;
             furniture.Category = furnitureDTO.Category;
             furniture.ImageUrl = furnitureDTO.ImageUrl;
 

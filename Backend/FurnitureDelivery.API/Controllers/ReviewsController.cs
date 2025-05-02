@@ -29,7 +29,7 @@ namespace FurnitureDelivery.API.Controllers
 
         // GET: api/reviews/driver/5
         [HttpGet("driver/{driverId}")]
-        public async Task<ActionResult<IEnumerable<ReviewDTO>>> GetDriverReviews(int driverId)
+        public async Task<ActionResult<IEnumerable<CreateReviewDTO>>> GetDriverReviews(int driverId)
         {
             // Check if driver exists
             bool driverExists = await _context.Drivers.AnyAsync(d => d.Id == driverId);
@@ -48,7 +48,7 @@ namespace FurnitureDelivery.API.Controllers
                 .ToListAsync();
 
             // Map to DTOs
-            var reviewDtos = reviews.Select(r => new ReviewDTO
+            var CreateReviewDTOs = reviews.Select(r => new ReviewResponseDTO
             {
                 Id = r.Id,
                 DeliveryId = r.DeliveryId,
@@ -61,20 +61,20 @@ namespace FurnitureDelivery.API.Controllers
                 CreatedAt = r.CreatedAt
             }).ToList();
 
-            return Ok(reviewDtos);
+            return Ok(CreateReviewDTOs);
         }
 
         // POST: api/reviews
         [HttpPost]
         [Authorize(Roles = "customer")]
-        public async Task<ActionResult<ReviewDTO>> CreateReview(CreateReviewDTO createReviewDto)
+        public async Task<ActionResult<CreateReviewDTO>> CreateReview(ReviewResponseDTO createCreateReviewDTO)
         {
             // Get user ID from claims
             int userId = int.Parse(User.FindFirst("uid")?.Value);
 
             // Check if delivery exists and is completed
             var delivery = await _context.Deliveries
-                .FirstOrDefaultAsync(d => d.Id == createReviewDto.DeliveryId);
+                .FirstOrDefaultAsync(d => d.Id == createCreateReviewDTO.DeliveryId);
 
             if (delivery == null)
             {
@@ -94,16 +94,16 @@ namespace FurnitureDelivery.API.Controllers
             }
 
             // Check if driver is assigned to this delivery
-            if (delivery.DriverId != createReviewDto.DriverId)
+            if (delivery.DriverId != createCreateReviewDTO.DriverId)
             {
                 return BadRequest(new { message = "Driver is not assigned to this delivery" });
             }
 
             // Check if review already exists
             bool reviewExists = await _context.Reviews
-                .AnyAsync(r => r.DeliveryId == createReviewDto.DeliveryId && 
+                .AnyAsync(r => r.DeliveryId == createCreateReviewDTO.DeliveryId && 
                               r.CustomerId == userId && 
-                              r.DriverId == createReviewDto.DriverId);
+                              r.DriverId == createCreateReviewDTO.DriverId);
 
             if (reviewExists)
             {
@@ -116,11 +116,11 @@ namespace FurnitureDelivery.API.Controllers
             // Create review
             var review = new Review
             {
-                DeliveryId = createReviewDto.DeliveryId,
+                DeliveryId = createCreateReviewDTO.DeliveryId,
                 CustomerId = userId,
-                DriverId = createReviewDto.DriverId,
-                Rating = createReviewDto.Rating,
-                Comment = createReviewDto.Comment,
+                DriverId = createCreateReviewDTO.DriverId,
+                Rating = createCreateReviewDTO.Rating,
+                Comment = createCreateReviewDTO.Comment,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -128,24 +128,24 @@ namespace FurnitureDelivery.API.Controllers
             await _context.SaveChangesAsync();
 
             // Update driver rating
-            await UpdateDriverRating(createReviewDto.DriverId);
+            await UpdateDriverRating(createCreateReviewDTO.DriverId);
 
             // Get driver details
             var driver = await _context.Drivers
                 .Include(d => d.User)
-                .FirstOrDefaultAsync(d => d.Id == createReviewDto.DriverId);
+                .FirstOrDefaultAsync(d => d.Id == createCreateReviewDTO.DriverId);
 
             // Create notification for driver
             await _notificationService.CreateNotification(
                 driver.UserId,
                 "new_review",
                 "New Review Received",
-                $"{customer.FirstName} {customer.LastName} gave you a {createReviewDto.Rating}-star review.",
+                $"{customer.FirstName} {customer.LastName} gave you a {createCreateReviewDTO.Rating}-star review.",
                 "review",
                 review.Id);
 
             // Return the created review
-            var reviewDto = new ReviewDTO
+            var CreateReviewDTO = new ReviewResponseDTO
             {
                 Id = review.Id,
                 DeliveryId = review.DeliveryId,
@@ -158,7 +158,7 @@ namespace FurnitureDelivery.API.Controllers
                 CreatedAt = review.CreatedAt
             };
 
-            return CreatedAtAction(nameof(GetDriverReviews), new { driverId = review.DriverId }, reviewDto);
+            return CreatedAtAction(nameof(GetDriverReviews), new { driverId = review.DriverId }, CreateReviewDTO);
         }
 
         // Private helper methods

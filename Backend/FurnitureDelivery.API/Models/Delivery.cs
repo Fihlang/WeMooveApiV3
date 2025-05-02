@@ -46,12 +46,14 @@ namespace FurnitureDelivery.API.Models
         public decimal TotalPrice { get; set; }
         
         public double? Distance { get; set; }
-        
-        [StringLength(50)]
+
+         [StringLength(50)]
         public string TrackingNumber { get; set; }
         
         [StringLength(500)]
         public string Notes { get; set; }
+
+        public string EstimatedTime { get; set; }
         
         [Required]
         public DateTime CreatedAt { get; set; }

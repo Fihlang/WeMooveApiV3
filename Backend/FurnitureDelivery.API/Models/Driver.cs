@@ -24,6 +24,8 @@ namespace FurnitureDelivery.API.Models
         public double? Rating { get; set; }
         
         public bool IsAvailable { get; set; } = true;
+
+        public bool IsOnline { get; set; } = true;
         
         public double? CurrentLatitude { get; set; }
         

@@ -1,0 +1,331 @@
+<div class="tracking-container">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <mat-progress-spinner mode="indeterminate" color="primary" diameter="60"></mat-progress-spinner>
+    <p>Loading delivery details...</p>
+  </div>
+  
+  <!-- Error State -->
+  <div *ngIf="error" class="error-state">
+    <div class="error-icon-wrapper">
+      <mat-icon color="warn">error_outline</mat-icon>
+    </div>
+    <h2>Error Loading Delivery</h2>
+    <p>{{ error }}</p>
+    <button mat-flat-button color="primary" (click)="loadDeliveryDetails()">
+      <mat-icon>refresh</mat-icon>
+      Retry
+    </button>
+  </div>
+  
+  <!-- Delivery Tracking Content -->
+  <div *ngIf="delivery && !loading && !error" class="delivery-tracking">
+    <!-- Header Section -->
+    <div class="tracking-header">
+      <div class="back-link">
+        <a mat-icon-button routerLink="/customer/dashboard">
+          <mat-icon>arrow_back</mat-icon>
+        </a>
+        <span>Back to Dashboard</span>
+      </div>
+      
+      <div class="tracking-title-section">
+        <h1>Delivery #{{ delivery.id }}</h1>
+        <div class="status-badge" [ngClass]="'status-' + delivery.status">
+          <mat-icon>{{ getStatusIcon(delivery.status) }}</mat-icon>
+          <span>{{ delivery.status | titlecase }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Progress Section -->
+    <div class="card-container progress-card">
+      <div class="card-content">
+        <h2>Delivery Progress</h2>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="getStatusCompletionPercentage()"></div>
+          </div>
+          
+          <div class="progress-steps">
+            <div class="step" [ngClass]="{'active': isStepActive('pending')}">
+              <div class="step-icon">
+                <mat-icon>inventory_2</mat-icon>
+              </div>
+              <div class="step-label">Order Placed</div>
+            </div>
+            
+            <div class="step" [ngClass]="{'active': isStepActive('driver_assigned')}">
+              <div class="step-icon">
+                <mat-icon>person</mat-icon>
+              </div>
+              <div class="step-label">Driver Assigned</div>
+            </div>
+            
+            <div class="step" [ngClass]="{'active': isStepActive('picked_up')}">
+              <div class="step-icon">
+                <mat-icon>local_shipping</mat-icon>
+              </div>
+              <div class="step-label">Picked Up</div>
+            </div>
+            
+            <div class="step" [ngClass]="{'active': isStepActive('in_transit')}">
+              <div class="step-icon">
+                <mat-icon>map</mat-icon>
+              </div>
+              <div class="step-label">In Transit</div>
+            </div>
+            
+            <div class="step" [ngClass]="{'active': isStepActive('delivered')}">
+              <div class="step-icon">
+                <mat-icon>check_circle</mat-icon>
+              </div>
+              <div class="step-label">Delivered</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Main Content Section -->
+    <div class="content-grid">
+      <!-- Left Column -->
+      <div class="content-column">
+        <!-- Map Card -->
+        <div class="card-container map-card">
+          <div class="card-content">
+            <h2>Live Location</h2>
+            <div class="map-container">
+              <div #mapContainer class="map"></div>
+              
+              <div *ngIf="delivery.tracking?.lastUpdated" class="map-update-time">
+                Last updated: {{ formatDate(delivery.tracking.lastUpdated) }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Timeline Card -->
+        <div class="card-container timeline-card">
+          <div class="card-content">
+            <h2>Delivery Timeline</h2>
+            
+            <div class="status-timeline">
+              <div *ngFor="let update of delivery.statusUpdates" class="timeline-item">
+                <div class="timeline-icon" [ngClass]="'status-' + update.status">
+                  <mat-icon>{{ getStatusIcon(update.status) }}</mat-icon>
+                </div>
+                <div class="timeline-content">
+                  <div class="timeline-header">
+                    <div class="timeline-title">{{ update.status | titlecase }}</div>
+                    <div class="timeline-date">{{ formatDate(update.timestamp) }}</div>
+                  </div>
+                  <div *ngIf="update.note" class="timeline-note">{{ update.note }}</div>
+                </div>
+              </div>
+              
+              <div *ngIf="delivery.statusUpdates.length === 0" class="empty-timeline">
+                <mat-icon>history</mat-icon>
+                <p>No status updates available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Right Column -->
+      <div class="content-column">
+        <!-- Delivery Details Card -->
+        <div class="card-container details-card">
+          <div class="card-content">
+            <h2>Delivery Details</h2>
+            
+            <div class="details-list">
+              <div class="detail-item">
+                <div class="detail-icon">
+                  <mat-icon>event</mat-icon>
+                </div>
+                <div class="detail-content">
+                  <div class="detail-label">Scheduled Date</div>
+                  <div class="detail-value">{{ formatDate(delivery.scheduledDate) }}</div>
+                </div>
+              </div>
+              
+              <div class="detail-item">
+                <div class="detail-icon location-from">
+                  <mat-icon>location_on</mat-icon>
+                </div>
+                <div class="detail-content">
+                  <div class="detail-label">Pickup Location</div>
+                  <div class="detail-value">{{ delivery.pickupAddress }}</div>
+                </div>
+              </div>
+              
+              <div class="detail-item">
+                <div class="detail-icon location-to">
+                  <mat-icon>flag</mat-icon>
+                </div>
+                <div class="detail-content">
+                  <div class="detail-label">Delivery Location</div>
+                  <div class="detail-value">{{ delivery.destinationAddress }}</div>
+                </div>
+              </div>
+              
+              <div class="detail-item" *ngIf="delivery.tracking?.estimatedArrival">
+                <div class="detail-icon">
+                  <mat-icon>access_time</mat-icon>
+                </div>
+                <div class="detail-content">
+                  <div class="detail-label">Estimated Arrival</div>
+                  <div class="detail-value">{{ formatDate(delivery.tracking.estimatedArrival) }}</div>
+                </div>
+              </div>
+              
+              <div class="detail-item">
+                <div class="detail-icon">
+                  <mat-icon>attach_money</mat-icon>
+                </div>
+                <div class="detail-content">
+                  <div class="detail-label">Total Price</div>
+                  <div class="detail-value price">${{ delivery.totalPrice.toFixed(2) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Driver Information Card -->
+        <div *ngIf="delivery.driverId" class="card-container driver-card">
+          <div class="card-content">
+            <h2>Driver Information</h2>
+            
+            <div class="driver-profile">
+              <div class="driver-avatar">
+                <img *ngIf="delivery.driverAvatar" [src]="delivery.driverAvatar" alt="Driver">
+                <div *ngIf="!delivery.driverAvatar" class="avatar-placeholder">
+                  {{ getDriverInitials() }}
+                </div>
+              </div>
+              
+              <div class="driver-info">
+                <div class="driver-name">{{ delivery.driverName || 'Assigned Driver' }}</div>
+                
+                <div class="driver-rating" *ngIf="delivery.driverRating">
+                  <div class="stars">
+                    <mat-icon *ngFor="let star of getStarsArray(delivery.driverRating)" class="star-icon">
+                      {{ star === 'full' ? 'star' : (star === 'half' ? 'star_half' : 'star_border') }}
+                    </mat-icon>
+                  </div>
+                  <span>{{ delivery.driverRating.toFixed(1) }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="driver-details">
+              <div class="driver-detail" *ngIf="delivery.driverVehicle">
+                <mat-icon>directions_car</mat-icon>
+                <span>{{ delivery.driverVehicle }} • {{ delivery.driverLicensePlate }}</span>
+              </div>
+              
+              <div class="driver-detail" *ngIf="delivery.driverPhone">
+                <mat-icon>phone</mat-icon>
+                <span>{{ delivery.driverPhone }}</span>
+              </div>
+            </div>
+            
+            <div class="driver-actions">
+              <button mat-flat-button color="primary" class="contact-btn" (click)="openChat()">
+                <mat-icon>chat</mat-icon>
+                Message
+              </button>
+              
+              <button mat-flat-button color="accent" class="contact-btn" (click)="callDriver()" *ngIf="delivery.driverPhone">
+                <mat-icon>phone</mat-icon>
+                Call
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Items Card -->
+        <div class="card-container items-card">
+          <div class="card-content">
+            <h2>Items ({{ delivery.items.length }})</h2>
+            
+            <div class="items-list">
+              <div *ngFor="let item of delivery.items" class="item-row">
+                <div class="item-info">
+                  <div class="item-icon" [ngClass]="{'special-handling': item.specialHandling}">
+                    <mat-icon>{{ item.specialHandling ? 'warning' : 'inventory_2' }}</mat-icon>
+                  </div>
+                  
+                  <div class="item-details">
+                    <div class="item-name">{{ item.name }}</div>
+                    <div class="item-properties">
+                      <span *ngIf="item.specialHandling" class="special-handling-tag">
+                        Special Handling
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="item-quantity">x{{ item.quantity }}</div>
+              </div>
+              
+              <div *ngIf="delivery.items.length === 0" class="empty-items">
+                <mat-icon>inventory_2</mat-icon>
+                <p>No items in this delivery</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Message Section -->
+    <div class="card-container message-card">
+      <div class="card-content">
+        <h2>Messages</h2>
+        
+        <div class="messages-container">
+          <div *ngIf="messages.length === 0" class="empty-messages">
+            <div class="empty-icon">
+              <mat-icon>chat</mat-icon>
+            </div>
+            <p>No messages yet</p>
+            <span>Send a message to your driver below</span>
+          </div>
+          
+          <div *ngIf="messages.length > 0" class="message-list">
+            <div *ngFor="let message of messages" class="message-item" [ngClass]="{'outgoing': message.senderId === currentUserId, 'incoming': message.senderId !== currentUserId}">
+              <div *ngIf="message.senderId !== currentUserId" class="message-avatar">
+                <div class="avatar-inner">
+                  {{ getDriverInitials() }}
+                </div>
+              </div>
+              
+              <div class="message-bubble">
+                <div class="message-text">{{ message.text }}</div>
+                <div class="message-time">{{ formatDate(message.timestamp) }}</div>
+              </div>
+              
+              <div *ngIf="message.senderId === currentUserId" class="message-avatar self">
+                <div class="avatar-inner">YOU</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="message-input">
+          <mat-form-field appearance="outline" class="message-field">
+            <input matInput placeholder="Type a message..." [(ngModel)]="newMessage" (keyup.enter)="sendMessage()">
+          </mat-form-field>
+          
+          <button mat-fab color="primary" aria-label="Send message" [disabled]="!newMessage.trim()" (click)="sendMessage()">
+            <mat-icon>send</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

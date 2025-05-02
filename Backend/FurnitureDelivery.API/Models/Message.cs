@@ -30,13 +30,14 @@ namespace FurnitureDelivery.API.Models
         /// ID of the user who sent the message
         /// </summary>
         public int SenderId { get; set; }
-        
-        /// <summary>
-        /// Type of sender (e.g., "customer", "driver", "system")
+
+                /// Type of sender (e.g., "customer", "driver", "system")
         /// </summary>
         [Required]
         [StringLength(20)]
         public string SenderType { get; set; }
+        
+        /// <summary>
         
         /// <summary>
         /// Navigation property for the sender

@@ -256,13 +256,13 @@ namespace FurnitureDelivery.API.Controllers
         }
 
         [HttpGet("reviews/{driverId}")]
-        public async Task<ActionResult<ApiResponse<List<ReviewDTO>>>> GetDriverReviews(int driverId)
+        public async Task<ActionResult<ApiResponse<List<ReviewResponseDTO>>>> GetDriverReviews(int driverId)
         {
             // Check if driver exists
             var driver = await _dbContext.Drivers.FindAsync(driverId);
             if (driver == null)
             {
-                return NotFound(ApiResponse<List<ReviewDTO>>.ErrorResponse("Driver not found"));
+                return NotFound(ApiResponse<List<ReviewResponseDTO>>.ErrorResponse("Driver not found"));
             }
 
             // Get reviews
@@ -275,7 +275,7 @@ namespace FurnitureDelivery.API.Controllers
                 .ToListAsync();
 
             // Map to DTOs
-            var reviewDTOs = reviews.Select(r => new ReviewDTO
+            var reviewDTOs = reviews.Select(r => new ReviewResponseDTO
             {
                 Id = r.Id,
                 CreatedAt = r.CreatedAt,
@@ -311,7 +311,7 @@ namespace FurnitureDelivery.API.Controllers
                 Comment = r.Comment
             }).ToList();
 
-            return Ok(ApiResponse<List<ReviewDTO>>.SuccessResponse(reviewDTOs));
+            return Ok(ApiResponse<List<ReviewResponseDTO>>.SuccessResponse(reviewDTOs));
         }
 
         [HttpPut("verify/{driverId}")]

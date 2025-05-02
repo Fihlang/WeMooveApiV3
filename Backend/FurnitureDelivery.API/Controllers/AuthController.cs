@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using FurnitureDelivery.API.Data;
 using FurnitureDelivery.API.DTOs;
 using FurnitureDelivery.API.Models;
@@ -28,19 +29,19 @@ namespace FurnitureDelivery.API.Controllers
         }
 
         [HttpPost("register/customer")]
-        public async Task<ActionResult<ApiResponse<AuthResponse>>> RegisterCustomer([FromBody] RegisterRequest request)
+        public async Task<ActionResult<ApiResponse<AuthResponseDTO>>> RegisterCustomer([FromBody] RegisterRequestDTO request)
         {
             // Validate request
             if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
             {
-                return BadRequest(ApiResponse<AuthResponse>.ErrorResponse("Email and password are required"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Email and password are required"));
             }
 
             // Check if email already exists
             var existingUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (existingUser != null)
             {
-                return BadRequest(ApiResponse<AuthResponse>.ErrorResponse("Email already registered"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Email already registered"));
             }
 
             // Create password hash
@@ -55,8 +56,8 @@ namespace FurnitureDelivery.API.Controllers
                 PhoneNumber = request.PhoneNumber,
                 Address = request.Address,
                 AvatarUrl = null,
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt,
+                PasswordHash =  System.Text.Encoding.Default.GetString(passwordHash),
+                PasswordSalt = System.Text.Encoding.Default.GetString(passwordSalt),
                 UserType = "customer",
                 IsVerified = false,
                 CreatedAt = DateTime.UtcNow
@@ -78,11 +79,10 @@ namespace FurnitureDelivery.API.Controllers
             var token = _authService.GenerateJwtToken(user);
 
             // Return response
-            var response = new AuthResponse
+            var response = new AuthResponseDTO
             {
                 Token = token,
-                User = new UserDTO
-                {
+           
                     Id = user.Id,
                     Email = user.Email,
                     FirstName = user.FirstName,
@@ -92,26 +92,26 @@ namespace FurnitureDelivery.API.Controllers
                     AvatarUrl = user.AvatarUrl,
                     IsVerified = user.IsVerified,
                     UserType = user.UserType
-                }
+                
             };
 
-            return Ok(ApiResponse<AuthResponse>.SuccessResponse(response, "Registration successful"));
+            return Ok(ApiResponse<AuthResponseDTO>.SuccessResponse(response, "Registration successful"));
         }
 
         [HttpPost("register/driver")]
-        public async Task<ActionResult<ApiResponse<AuthResponse>>> RegisterDriver([FromBody] RegisterDriverRequest request)
+        public async Task<ActionResult<ApiResponse<AuthResponseDTO>>> RegisterDriver([FromBody] RegisterDriverRequestDTO request)
         {
             // Validate request
             if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
             {
-                return BadRequest(ApiResponse<AuthResponse>.ErrorResponse("Email and password are required"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Email and password are required"));
             }
 
             // Check if email already exists
             var existingUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (existingUser != null)
             {
-                return BadRequest(ApiResponse<AuthResponse>.ErrorResponse("Email already registered"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Email already registered"));
             }
 
             // Create password hash
@@ -126,8 +126,8 @@ namespace FurnitureDelivery.API.Controllers
                 PhoneNumber = request.PhoneNumber,
                 Address = request.Address,
                 AvatarUrl = null,
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt,
+                PasswordHash =  System.Text.Encoding.Default.GetString(passwordHash),
+                PasswordSalt = System.Text.Encoding.Default.GetString(passwordSalt),
                 UserType = "driver",
                 IsVerified = false,
                 CreatedAt = DateTime.UtcNow
@@ -167,11 +167,9 @@ namespace FurnitureDelivery.API.Controllers
             var token = _authService.GenerateJwtToken(user);
 
             // Return response
-            var response = new AuthResponse
+            var response = new AuthResponseDTO
             {
                 Token = token,
-                User = new UserDTO
-                {
                     Id = user.Id,
                     Email = user.Email,
                     FirstName = user.FirstName,
@@ -181,32 +179,18 @@ namespace FurnitureDelivery.API.Controllers
                     AvatarUrl = user.AvatarUrl,
                     IsVerified = user.IsVerified,
                     UserType = user.UserType
-                },
-                Driver = new DriverDTO
-                {
-                    Id = driver.Id,
-                    UserId = driver.UserId,
-                    VehicleType = driver.VehicleType,
-                    LicensePlate = driver.LicensePlate,
-                    Capacity = driver.Capacity,
-                    Rating = driver.Rating,
-                    IsAvailable = driver.IsAvailable,
-                    CurrentLatitude = driver.CurrentLatitude,
-                    CurrentLongitude = driver.CurrentLongitude,
-                    VerificationStatus = driver.VerificationStatus
-                }
             };
 
-            return Ok(ApiResponse<AuthResponse>.SuccessResponse(response, "Registration successful. Your driver account is pending verification."));
+            return Ok(ApiResponse<AuthResponseDTO>.SuccessResponse(response, "Registration successful. Your driver account is pending verification."));
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<ApiResponse<AuthResponse>>> Login([FromBody] LoginRequest request)
+        public async Task<ActionResult<ApiResponse<AuthResponseDTO>>> Login([FromBody] LoginRequestDTO request)
         {
             // Validate request
             if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
             {
-                return BadRequest(ApiResponse<AuthResponse>.ErrorResponse("Email and password are required"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Email and password are required"));
             }
 
             // Find user by email
@@ -216,24 +200,23 @@ namespace FurnitureDelivery.API.Controllers
 
             if (user == null)
             {
-                return BadRequest(ApiResponse<AuthResponse>.ErrorResponse("Invalid email or password"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Invalid email or password"));
             }
 
             // Verify password
-            if (!_authService.VerifyPassword(request.Password, user.PasswordHash, user.PasswordSalt))
+            if (!_authService.VerifyPassword(request.Password, Encoding.ASCII.GetBytes(user.PasswordHash), Encoding.ASCII.GetBytes(user.PasswordSalt)))
             {
-                return BadRequest(ApiResponse<AuthResponse>.ErrorResponse("Invalid email or password"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Invalid email or password"));
             }
 
             // Generate JWT token
             var token = _authService.GenerateJwtToken(user);
 
             // Create response
-            var response = new AuthResponse
+            var response = new AuthResponseDTO
             {
                 Token = token,
-                User = new UserDTO
-                {
+               
                     Id = user.Id,
                     Email = user.Email,
                     FirstName = user.FirstName,
@@ -243,13 +226,13 @@ namespace FurnitureDelivery.API.Controllers
                     AvatarUrl = user.AvatarUrl,
                     IsVerified = user.IsVerified,
                     UserType = user.UserType
-                }
+                
             };
 
             // If driver, include driver details
             if (user.UserType == "driver" && user.Driver != null)
             {
-                response.Driver = new DriverDTO
+                response = new DriverDTO
                 {
                     Id = user.Driver.Id,
                     UserId = user.Driver.UserId,
@@ -264,11 +247,11 @@ namespace FurnitureDelivery.API.Controllers
                 };
             }
 
-            return Ok(ApiResponse<AuthResponse>.SuccessResponse(response, "Login successful"));
+            return Ok(ApiResponse<AuthResponseDTO>.SuccessResponse(response, "Login successful"));
         }
 
         [HttpPost("validate")]
-        public ActionResult<ApiResponse<bool>> ValidateToken([FromBody] ValidateTokenRequest request)
+        public ActionResult<ApiResponse<bool>> ValidateToken([FromBody] AuthResponseDTO request)
         {
             var isValid = _authService.ValidateToken(request.Token);
             return Ok(ApiResponse<bool>.SuccessResponse(isValid));
@@ -276,13 +259,13 @@ namespace FurnitureDelivery.API.Controllers
 
         [HttpGet("profile")]
         [Authorize]
-        public async Task<ActionResult<ApiResponse<UserDTO>>> GetProfile()
+        public async Task<ActionResult<ApiResponse<AuthResponseDTO>>> GetProfile()
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<UserDTO>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get user
@@ -292,11 +275,11 @@ namespace FurnitureDelivery.API.Controllers
 
             if (user == null)
             {
-                return NotFound(ApiResponse<UserDTO>.ErrorResponse("User not found"));
+                return NotFound(ApiResponse<AuthResponseDTO>.ErrorResponse("User not found"));
             }
 
             // Map to DTO
-            var userDTO = new UserDTO
+            var AuthResponseDTO = new AuthResponseDTO
             {
                 Id = user.Id,
                 Email = user.Email,
@@ -309,25 +292,25 @@ namespace FurnitureDelivery.API.Controllers
                 UserType = user.UserType
             };
 
-            return Ok(ApiResponse<UserDTO>.SuccessResponse(userDTO));
+            return Ok(ApiResponse<AuthResponseDTO>.SuccessResponse(AuthResponseDTO));
         }
 
         [HttpPut("profile")]
         [Authorize]
-        public async Task<ActionResult<ApiResponse<UserDTO>>> UpdateProfile([FromBody] UpdateProfileRequest request)
+        public async Task<ActionResult<ApiResponse<AuthResponseDTO>>> UpdateProfile([FromBody] AuthResponseDTO request)
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<UserDTO>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<AuthResponseDTO>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get user
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
             {
-                return NotFound(ApiResponse<UserDTO>.ErrorResponse("User not found"));
+                return NotFound(ApiResponse<AuthResponseDTO>.ErrorResponse("User not found"));
             }
 
             // Update user properties
@@ -349,7 +332,7 @@ namespace FurnitureDelivery.API.Controllers
             await _dbContext.SaveChangesAsync();
 
             // Map to DTO
-            var userDTO = new UserDTO
+            var AuthResponseDTO = new AuthResponseDTO
             {
                 Id = user.Id,
                 Email = user.Email,
@@ -362,12 +345,12 @@ namespace FurnitureDelivery.API.Controllers
                 UserType = user.UserType
             };
 
-            return Ok(ApiResponse<UserDTO>.SuccessResponse(userDTO, "Profile updated successfully"));
+            return Ok(ApiResponse<AuthResponseDTO>.SuccessResponse(AuthResponseDTO, "Profile updated successfully"));
         }
 
         [HttpPut("change-password")]
         [Authorize]
-        public async Task<ActionResult<ApiResponse<bool>>> ChangePassword([FromBody] ChangePasswordRequest request)
+        public async Task<ActionResult<ApiResponse<bool>>> ChangePassword([FromBody] ChangePasswordDTO request)
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -384,15 +367,15 @@ namespace FurnitureDelivery.API.Controllers
             }
 
             // Verify current password
-            if (!_authService.VerifyPassword(request.CurrentPassword, user.PasswordHash, user.PasswordSalt))
+            if (!_authService.VerifyPassword(request.CurrentPassword, Encoding.ASCII.GetBytes(user.PasswordHash), Encoding.ASCII.GetBytes(user.PasswordSalt)))
             {
                 return BadRequest(ApiResponse<bool>.ErrorResponse("Current password is incorrect"));
             }
 
             // Create new password hash
             var (passwordHash, passwordSalt) = _authService.HashPassword(request.NewPassword);
-            user.PasswordHash = passwordHash;
-            user.PasswordSalt = passwordSalt;
+            user.PasswordHash = Encoding.Default.GetString(passwordHash);
+            user.PasswordSalt = Encoding.Default.GetString(passwordSalt);
 
             await _dbContext.SaveChangesAsync();
 

@@ -3,16 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace FurnitureDelivery.API.DTOs
 {
-    // Update Delivery Status Request DTO
-    public class UpdateDeliveryStatusRequest
-    {
-        [Required]
-        [JsonPropertyName("status")]
-        public string Status { get; set; } = "";
-        
-        [JsonPropertyName("notes")]
-        public string? Notes { get; set; }
-    }
     // Create Delivery Request DTO
     public class CreateDeliveryRequestDTO
     {
@@ -66,18 +56,18 @@ namespace FurnitureDelivery.API.DTOs
         [JsonPropertyName("customerId")]
         public int CustomerId { get; set; }
         
-        [JsonPropertyName("customer")]
-        public UserDTO? Customer { get; set; }
-        
         [JsonPropertyName("customerName")]
         public string? CustomerName { get; set; }
+
+         [JsonPropertyName("customer")]
+        public UserDTO? Customer { get; set; }
         
         [JsonPropertyName("customerPhone")]
         public string? CustomerPhone { get; set; }
         
         [JsonPropertyName("driverId")]
         public int? DriverId { get; set; }
-        
+
         [JsonPropertyName("driver")]
         public DriverDTO? Driver { get; set; }
         
@@ -101,7 +91,21 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("totalPrice")]
         public decimal TotalPrice { get; set; }
-        
+
+       [JsonPropertyName("PaymentMethod")]
+        public string PaymentMethod { get; set; } = "";
+
+         [JsonPropertyName("TrackingNumber")]
+        [StringLength(50)]
+        public string TrackingNumber { get; set; }
+
+       [JsonPropertyName("Notes")]
+       [StringLength(50)]
+        public string Notes { get; set; }
+
+         [JsonPropertyName("EstimatedTime")]
+        public string EstimatedTime { get; set; }
+
         [JsonPropertyName("payment")]
         public PaymentDTO? Payment { get; set; }
         
@@ -119,15 +123,6 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("actualDuration")]
         public double? ActualDuration { get; set; }
-        
-        [JsonPropertyName("trackingNumber")]
-        public string? TrackingNumber { get; set; }
-        
-        [JsonPropertyName("notes")]
-        public string? Notes { get; set; }
-        
-        [JsonPropertyName("estimatedTime")]
-        public double? EstimatedTime { get; set; }
         
         [JsonPropertyName("items")]
         public List<DeliveryItemResponseDTO>? Items { get; set; }
@@ -147,10 +142,11 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("furnitureId")]
         public int FurnitureId { get; set; }
-        
+
         [JsonPropertyName("furniture")]
         public FurnitureDTO? Furniture { get; set; }
-        
+
+       
         [JsonPropertyName("furnitureName")]
         public string? FurnitureName { get; set; }
         
@@ -257,15 +253,22 @@ namespace FurnitureDelivery.API.DTOs
         
         [JsonPropertyName("customerId")]
         public int CustomerId { get; set; }
-        
-        [JsonPropertyName("customerName")]
+
+         [JsonPropertyName("customerName")]
         public string? CustomerName { get; set; }
+
+         [JsonPropertyName("customer")]
+        public UserDTO Customer { get; set; }
+        
         
         [JsonPropertyName("driverId")]
         public int DriverId { get; set; }
-        
-        [JsonPropertyName("driverName")]
+
+         [JsonPropertyName("driverName")]
         public string? DriverName { get; set; }
+        
+        [JsonPropertyName("driver")]
+        public DriverDTO Driver { get; set; }
         
         [JsonPropertyName("rating")]
         public int Rating { get; set; }

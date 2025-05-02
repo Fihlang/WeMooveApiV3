@@ -29,20 +29,20 @@ namespace FurnitureDelivery.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<List<DeliveryDTO>>>> GetDeliveries()
+        public async Task<ActionResult<ApiResponse<List<DeliveryResponseDTO>>>> GetDeliveries()
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<List<DeliveryDTO>>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<List<DeliveryResponseDTO>>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get user
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
             {
-                return NotFound(ApiResponse<List<DeliveryDTO>>.ErrorResponse("User not found"));
+                return NotFound(ApiResponse<List<DeliveryResponseDTO>>.ErrorResponse("User not found"));
             }
 
             // Get deliveries based on user type
@@ -65,7 +65,7 @@ namespace FurnitureDelivery.API.Controllers
                 var driver = await _dbContext.Drivers.FirstOrDefaultAsync(d => d.UserId == userId);
                 if (driver == null)
                 {
-                    return NotFound(ApiResponse<List<DeliveryDTO>>.ErrorResponse("Driver record not found"));
+                    return NotFound(ApiResponse<List<DeliveryResponseDTO>>.ErrorResponse("Driver record not found"));
                 }
 
                 deliveries = await _dbContext.Deliveries
@@ -93,27 +93,27 @@ namespace FurnitureDelivery.API.Controllers
             }
 
             // Map to DTOs
-            var deliveryDTOs = deliveries.Select(d => MapDeliveryToDTO(d)).ToList();
+            var DeliveryResponseDTOs = deliveries.Select(d => MapDeliveryToDTO(d)).ToList();
 
             // Return successful response
-            return Ok(ApiResponse<List<DeliveryDTO>>.SuccessResponse(deliveryDTOs));
+            return Ok(ApiResponse<List<DeliveryResponseDTO>>.SuccessResponse(DeliveryResponseDTOs));
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<ApiResponse<DeliveryDTO>>> GetDelivery(int id)
+        public async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> GetDelivery(int id)
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<DeliveryDTO>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get user
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
             {
-                return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse("User not found"));
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("User not found"));
             }
 
             // Get delivery with includes
@@ -128,7 +128,7 @@ namespace FurnitureDelivery.API.Controllers
 
             if (delivery == null)
             {
-                return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse("Delivery not found"));
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Delivery not found"));
             }
 
             // Check permissions
@@ -146,27 +146,27 @@ namespace FurnitureDelivery.API.Controllers
             }
 
             // Map to DTO
-            var deliveryDTO = MapDeliveryToDTO(delivery);
+            var DeliveryResponseDTO = MapDeliveryToDTO(delivery);
 
             // Return successful response
-            return Ok(ApiResponse<DeliveryDTO>.SuccessResponse(deliveryDTO));
+            return Ok(ApiResponse<DeliveryResponseDTO>.SuccessResponse(DeliveryResponseDTO));
         }
 
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<DeliveryDTO>>> CreateDelivery(CreateDeliveryRequest request)
+        public async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> CreateDelivery(DeliveryResponseDTO request)
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<DeliveryDTO>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get customer
             var customer = await _dbContext.Users.FindAsync(request.CustomerId);
             if (customer == null)
             {
-                return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse("Customer not found"));
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Customer not found"));
             }
 
             // Verify furniture items
@@ -175,7 +175,7 @@ namespace FurnitureDelivery.API.Controllers
                 var furniture = await _dbContext.Furniture.FindAsync(item.FurnitureId);
                 if (furniture == null)
                 {
-                    return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse($"Furniture with ID {item.FurnitureId} not found"));
+                    return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse($"Furniture with ID {item.FurnitureId} not found"));
                 }
             }
 
@@ -220,7 +220,7 @@ namespace FurnitureDelivery.API.Controllers
                 var payment = new Payment
                 {
                     DeliveryId = delivery.Id,
-                    Method = request.PaymentMethod,
+                    PaymentMethod = request.PaymentMethod,
                     Status = "pending",
                     Amount = request.TotalPrice,
                     CreatedAt = DateTime.UtcNow
@@ -264,31 +264,31 @@ namespace FurnitureDelivery.API.Controllers
                 .FirstOrDefaultAsync(d => d.Id == delivery.Id);
 
             // Map to DTO
-            var deliveryDTO = MapDeliveryToDTO(createdDelivery);
+            var DeliveryResponseDTO = MapDeliveryToDTO(createdDelivery);
 
             // Return successful response
             return CreatedAtAction(
                 nameof(GetDelivery),
                 new { id = delivery.Id },
-                ApiResponse<DeliveryDTO>.SuccessResponse(deliveryDTO, "Delivery created successfully")
+                ApiResponse<DeliveryResponseDTO>.SuccessResponse(DeliveryResponseDTO, "Delivery created successfully")
             );
         }
 
         [HttpPut("{id}/status")]
-        public async Task<ActionResult<ApiResponse<DeliveryDTO>>> UpdateDeliveryStatus(int id, UpdateDeliveryStatusRequest request)
+        public async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> UpdateDeliveryStatus(int id, UpdateDeliveryStatusDTO request)
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<DeliveryDTO>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get user
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
             {
-                return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse("User not found"));
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("User not found"));
             }
 
             // Get delivery
@@ -303,7 +303,7 @@ namespace FurnitureDelivery.API.Controllers
 
             if (delivery == null)
             {
-                return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse("Delivery not found"));
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Delivery not found"));
             }
 
             // Check permissions
@@ -360,20 +360,20 @@ namespace FurnitureDelivery.API.Controllers
             await _webSocketService.BroadcastDeliveryStatusUpdate(delivery.Id, request.Status);
 
             // Map to DTO
-            var deliveryDTO = MapDeliveryToDTO(delivery);
+            var DeliveryResponseDTO = MapDeliveryToDTO(delivery);
 
             // Return successful response
-            return Ok(ApiResponse<DeliveryDTO>.SuccessResponse(deliveryDTO, "Delivery status updated successfully"));
+            return Ok(ApiResponse<DeliveryResponseDTO>.SuccessResponse(DeliveryResponseDTO, "Delivery status updated successfully"));
         }
 
         [HttpPut("{id}/driver")]
-        public async Task<ActionResult<ApiResponse<DeliveryDTO>>> AssignDriver(int id, AssignDriverRequest request)
+        public async Task<ActionResult<ApiResponse<DeliveryResponseDTO>>> AssignDriver(int id, AssignDriverDTO request)
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<DeliveryDTO>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get delivery
@@ -386,7 +386,7 @@ namespace FurnitureDelivery.API.Controllers
 
             if (delivery == null)
             {
-                return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse("Delivery not found"));
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Delivery not found"));
             }
 
             // Get driver
@@ -396,7 +396,7 @@ namespace FurnitureDelivery.API.Controllers
 
             if (driver == null)
             {
-                return NotFound(ApiResponse<DeliveryDTO>.ErrorResponse("Driver not found"));
+                return NotFound(ApiResponse<DeliveryResponseDTO>.ErrorResponse("Driver not found"));
             }
 
             // Update delivery
@@ -454,28 +454,28 @@ namespace FurnitureDelivery.API.Controllers
                 .FirstOrDefaultAsync(d => d.Id == id);
 
             // Map to DTO
-            var deliveryDTO = MapDeliveryToDTO(delivery);
+            var DeliveryResponseDTO = MapDeliveryToDTO(delivery);
 
             // Return successful response
-            return Ok(ApiResponse<DeliveryDTO>.SuccessResponse(deliveryDTO, "Driver assigned successfully"));
+            return Ok(ApiResponse<DeliveryResponseDTO>.SuccessResponse(DeliveryResponseDTO, "Driver assigned successfully"));
         }
 
         [HttpGet("available")]
         [Authorize(Roles = "driver")]
-        public async Task<ActionResult<ApiResponse<List<DeliveryDTO>>>> GetAvailableDeliveries()
+        public async Task<ActionResult<ApiResponse<List<DeliveryResponseDTO>>>> GetAvailableDeliveries()
         {
             // Get user ID from token claims
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
             {
-                return BadRequest(ApiResponse<List<DeliveryDTO>>.ErrorResponse("Invalid user ID in token"));
+                return BadRequest(ApiResponse<List<DeliveryResponseDTO>>.ErrorResponse("Invalid user ID in token"));
             }
 
             // Get driver
             var driver = await _dbContext.Drivers.FirstOrDefaultAsync(d => d.UserId == userId);
             if (driver == null)
             {
-                return NotFound(ApiResponse<List<DeliveryDTO>>.ErrorResponse("Driver record not found"));
+                return NotFound(ApiResponse<List<DeliveryResponseDTO>>.ErrorResponse("Driver record not found"));
             }
 
             // Get available deliveries (pending status, no driver assigned)
@@ -488,10 +488,10 @@ namespace FurnitureDelivery.API.Controllers
                 .ToListAsync();
 
             // Map to DTOs
-            var deliveryDTOs = deliveries.Select(d => MapDeliveryToDTO(d)).ToList();
+            var DeliveryResponseDTOs = deliveries.Select(d => MapDeliveryToDTO(d)).ToList();
 
             // Return successful response
-            return Ok(ApiResponse<List<DeliveryDTO>>.SuccessResponse(deliveryDTOs));
+            return Ok(ApiResponse<List<DeliveryResponseDTO>>.SuccessResponse(DeliveryResponseDTOs));
         }
 
         private string GenerateTrackingNumber()
@@ -516,9 +516,9 @@ namespace FurnitureDelivery.API.Controllers
             };
         }
 
-        private DeliveryDTO MapDeliveryToDTO(Delivery delivery)
+        private DeliveryResponseDTO MapDeliveryToDTO(Delivery delivery)
         {
-            var dto = new DeliveryDTO
+            var dto = new DeliveryResponseDTO
             {
                 Id = delivery.Id,
                 CreatedAt = delivery.CreatedAt,
@@ -546,7 +546,7 @@ namespace FurnitureDelivery.API.Controllers
                 Notes = delivery.Notes,
                 EstimatedTime = delivery.EstimatedTime,
                 Distance = delivery.Distance,
-                Items = delivery.Items?.Select(i => new DeliveryItemDTO
+               Items = delivery.Items?.Select(i => new DeliveryItemResponseDTO
                 {
                     Id = i.Id,
                     DeliveryId = i.DeliveryId,
@@ -557,13 +557,13 @@ namespace FurnitureDelivery.API.Controllers
                         Name = i.Furniture.Name,
                         Description = i.Furniture.Description,
                         Weight = i.Furniture.Weight,
-                        Dimensions = i.Furniture.Dimensions,
+                        Dimensions = i.Furniture.DimensionsJson,
                         Category = i.Furniture.Category,
                         ImageUrl = i.Furniture.ImageUrl
                     },
                     Quantity = i.Quantity,
                     SpecialHandling = i.SpecialHandling
-                }).ToList() ?? new List<DeliveryItemDTO>()
+                }).ToList() ?? new List<DeliveryItemResponseDTO>()
             };
 
             // Add driver details if assigned
@@ -591,7 +591,7 @@ namespace FurnitureDelivery.API.Controllers
                 {
                     Id = delivery.Payment.Id,
                     DeliveryId = delivery.Payment.DeliveryId,
-                    Method = delivery.Payment.Method,
+                    Method = delivery.Payment.PaymentMethod,
                     Status = delivery.Payment.Status,
                     Amount = delivery.Payment.Amount,
                     CreatedAt = delivery.Payment.CreatedAt,
