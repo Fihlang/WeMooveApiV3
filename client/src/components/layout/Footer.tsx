@@ -20,29 +20,29 @@ export default function Footer() {
             <div>
               <h4 className="font-heading font-semibold mb-4">Explore</h4>
               <ul className="space-y-2">
-                <li><Link href="/puzzles"><a className="text-gray-400 hover:text-white transition-colors">Puzzles</a></Link></li>
-                <li><Link href="/cultures"><a className="text-gray-400 hover:text-white transition-colors">Cultures</a></Link></li>
-                <li><Link href="/achievements"><a className="text-gray-400 hover:text-white transition-colors">Achievements</a></Link></li>
-                <li><Link href="/leaderboard"><a className="text-gray-400 hover:text-white transition-colors">Leaderboard</a></Link></li>
+                <li><Link href="/puzzles"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Puzzles</div></Link></li>
+                <li><Link href="/cultures"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Cultures</div></Link></li>
+                <li><Link href="/achievements"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Achievements</div></Link></li>
+                <li><Link href="/leaderboard"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Leaderboard</div></Link></li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-heading font-semibold mb-4">Resources</h4>
               <ul className="space-y-2">
-                <li><Link href="/archives"><a className="text-gray-400 hover:text-white transition-colors">Cultural Archives</a></Link></li>
-                <li><Link href="/learning-paths"><a className="text-gray-400 hover:text-white transition-colors">Learning Paths</a></Link></li>
-                <li><Link href="/guide"><a className="text-gray-400 hover:text-white transition-colors">Puzzle Guide</a></Link></li>
-                <li><Link href="/faq"><a className="text-gray-400 hover:text-white transition-colors">FAQ</a></Link></li>
+                <li><Link href="/archives"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Cultural Archives</div></Link></li>
+                <li><Link href="/learning-paths"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Learning Paths</div></Link></li>
+                <li><Link href="/guide"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Puzzle Guide</div></Link></li>
+                <li><Link href="/faq"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">FAQ</div></Link></li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-heading font-semibold mb-4">Connect</h4>
               <ul className="space-y-2">
-                <li><Link href="/about"><a className="text-gray-400 hover:text-white transition-colors">About Us</a></Link></li>
-                <li><Link href="/contact"><a className="text-gray-400 hover:text-white transition-colors">Contact</a></Link></li>
-                <li><Link href="/blog"><a className="text-gray-400 hover:text-white transition-colors">Blog</a></Link></li>
+                <li><Link href="/about"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">About Us</div></Link></li>
+                <li><Link href="/contact"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Contact</div></Link></li>
+                <li><Link href="/blog"><div className="text-gray-400 hover:text-white transition-colors cursor-pointer">Blog</div></Link></li>
                 <li>
                   <div className="flex space-x-3">
                     <a href="#" className="text-gray-400 hover:text-white transition-colors">
@@ -70,9 +70,9 @@ export default function Footer() {
         <div className="pt-6 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400 text-sm">© 2023 CultureQuest. All rights reserved.</p>
           <div className="flex space-x-6 mt-4 md:mt-0">
-            <Link href="/privacy"><a className="text-gray-400 hover:text-white transition-colors text-sm">Privacy Policy</a></Link>
-            <Link href="/terms"><a className="text-gray-400 hover:text-white transition-colors text-sm">Terms of Service</a></Link>
-            <Link href="/cookies"><a className="text-gray-400 hover:text-white transition-colors text-sm">Cookies</a></Link>
+            <Link href="/privacy"><div className="text-gray-400 hover:text-white transition-colors text-sm cursor-pointer">Privacy Policy</div></Link>
+            <Link href="/terms"><div className="text-gray-400 hover:text-white transition-colors text-sm cursor-pointer">Terms of Service</div></Link>
+            <Link href="/cookies"><div className="text-gray-400 hover:text-white transition-colors text-sm cursor-pointer">Cookies</div></Link>
           </div>
         </div>
       </div>
