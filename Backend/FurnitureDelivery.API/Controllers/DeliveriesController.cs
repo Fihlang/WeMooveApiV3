@@ -353,7 +353,9 @@ namespace FurnitureDelivery.API.Controllers
                     PickupAddress = delivery.PickupAddress,
                     DestinationAddress = delivery.DestinationAddress,
                     ScheduledDate = delivery.ScheduledDate,
-                    TotalPrice = delivery.TotalPrice
+                    TotalPrice = delivery.TotalPrice,
+                    DeliveryType = delivery.DeliveryType,
+                    RequiredVehicleType = delivery.RequiredVehicleType
                 }
             });
 
