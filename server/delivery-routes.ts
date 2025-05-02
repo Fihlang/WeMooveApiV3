@@ -1,8 +1,11 @@
 import { Express, Request, Response } from 'express';
 import { Server } from 'http';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { deliveryStorage } from './delivery-storage';
 import { createWebSocketService } from './websocket';
+import { db } from './db';
+import { eq, and, or, gt, isNull } from 'drizzle-orm';
+import * as schema from '../shared/db-schema';
 import {
   insertUserSchema,
   insertDriverSchema,
@@ -18,6 +21,9 @@ import {
   insertDeliveryItemSchema
 } from '../shared/db-schema';
 import bcrypt from 'bcrypt';
+
+// Initialize WebSocket service
+let wsService: any;
 import argon2 from 'argon2';
 import { 
   sendWelcomeEmail,
@@ -41,7 +47,7 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
   const httpServer = new Server(app);
   
   // Initialize WebSocket service
-  const wsService = createWebSocketService(httpServer);
+  wsService = createWebSocketService(httpServer);
 
   // Auth Routes
   app.post('/api/auth/register', async (req: Request, res: Response) => {
@@ -168,34 +174,154 @@ export async function registerDeliveryRoutes(app: Express): Promise<Server> {
   app.put('/api/drivers/:id/location', async (req: Request, res: Response) => {
     try {
       const driverId = parseInt(req.params.id);
-      const { latitude, longitude } = req.body;
+      const { latitude, longitude, heading, speed } = req.body;
       
-      const driver = await deliveryStorage.updateDriverLocation(driverId, latitude, longitude);
+      if (!latitude || !longitude) {
+        return res.status(400).json({ error: 'Latitude and longitude are required' });
+      }
+      
+      const driver = await deliveryStorage.updateDriverLocation(
+        driverId, 
+        parseFloat(latitude), 
+        parseFloat(longitude),
+        heading ? parseFloat(heading) : undefined,
+        speed ? parseFloat(speed) : undefined
+      );
+      
+      // If the driver has an active delivery, broadcast location update to the customer
+      const activeDeliveries = await deliveryStorage.getActiveDeliveriesByDriverId(driverId);
+      if (activeDeliveries.length > 0) {
+        const currentDelivery = activeDeliveries[0];
+        
+        // Calculate ETA if we have both coordinates for pickup/dropoff
+        let estimatedArrivalTime = null;
+        if (speed && currentDelivery) {
+          const deliveryWithDetails = await deliveryStorage.getDeliveryWithItems(currentDelivery.id);
+          if (deliveryWithDetails) {
+            const destination = currentDelivery.status === 'driver_en_route_to_pickup' 
+              ? deliveryWithDetails.pickupAddress 
+              : deliveryWithDetails.dropoffAddress;
+              
+            if (destination && destination.latitude && destination.longitude) {
+              // Calculate distance using Haversine formula
+              const R = 6371; // Earth's radius in km
+              const dLat = (parseFloat(destination.latitude) - latitude) * Math.PI / 180;
+              const dLon = (parseFloat(destination.longitude) - longitude) * Math.PI / 180;
+              const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(latitude * Math.PI / 180) * Math.cos(parseFloat(destination.latitude) * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              const distance = R * c; // Distance in km
+              
+              // Calculate ETA based on current speed (km/h)
+              if (speed > 0) {
+                const travelTimeHours = distance / speed;
+                estimatedArrivalTime = new Date(Date.now() + travelTimeHours * 60 * 60 * 1000);
+                
+                // Update the delivery with the estimated arrival time
+                await db.update(schema.deliveries)
+                  .set({ 
+                    estimatedDeliveryTime: estimatedArrivalTime,
+                    updatedAt: new Date()
+                  })
+                  .where(eq(schema.deliveries.id, currentDelivery.id));
+              }
+            }
+          }
+        }
+        
+        // Broadcast the location update to all clients subscribed to this delivery
+        wsService.broadcastToDelivery(currentDelivery.id, {
+          type: 'driver_location_updated',
+          payload: {
+            deliveryId: currentDelivery.id,
+            driverId,
+            latitude,
+            longitude,
+            heading,
+            speed,
+            estimatedArrivalTime: estimatedArrivalTime ? estimatedArrivalTime.toISOString() : null,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
       res.json(driver);
     } catch (error) {
       console.error('Error updating driver location:', error);
       res.status(500).json({ error: 'Failed to update driver location' });
     }
   });
+  
+  app.put('/api/drivers/:id/status', async (req: Request, res: Response) => {
+    try {
+      const driverId = parseInt(req.params.id);
+      const { isOnline, isAvailable } = req.body;
+      
+      if (isOnline === undefined || isAvailable === undefined) {
+        return res.status(400).json({ error: 'isOnline and isAvailable status are required' });
+      }
+      
+      const driver = await deliveryStorage.updateDriverStatus(driverId, isOnline, isAvailable);
+      res.json(driver);
+    } catch (error) {
+      console.error('Error updating driver status:', error);
+      res.status(500).json({ error: 'Failed to update driver status' });
+    }
+  });
 
   app.get('/api/drivers/nearby', async (req: Request, res: Response) => {
     try {
-      const { latitude, longitude, radius = 10 } = req.query;
+      const { latitude, longitude, radius = 10, vehicleType, onlineOnly = 'true' } = req.query;
       
       if (!latitude || !longitude) {
         return res.status(400).json({ error: 'Latitude and longitude are required' });
       }
       
+      const requiresOnline = onlineOnly === 'true';
+      
       const drivers = await deliveryStorage.getDriversNearby(
         parseFloat(latitude as string), 
         parseFloat(longitude as string), 
-        parseFloat(radius as string)
+        parseFloat(radius as string),
+        vehicleType as string | undefined,
+        requiresOnline
       );
       
       res.json(drivers);
     } catch (error) {
       console.error('Error fetching nearby drivers:', error);
       res.status(500).json({ error: 'Failed to fetch nearby drivers' });
+    }
+  });
+  
+  app.get('/api/drivers/available-for-delivery', async (req: Request, res: Response) => {
+    try {
+      const { 
+        pickupLatitude, 
+        pickupLongitude, 
+        vehicleType, 
+        isSmallParcel = 'false' 
+      } = req.query;
+      
+      if (!pickupLatitude || !pickupLongitude || !vehicleType) {
+        return res.status(400).json({ 
+          error: 'Pickup coordinates and vehicle type are required'
+        });
+      }
+      
+      const drivers = await deliveryStorage.getAvailableDriversForDelivery(
+        parseFloat(pickupLatitude as string),
+        parseFloat(pickupLongitude as string),
+        vehicleType as string,
+        isSmallParcel === 'true'
+      );
+      
+      res.json(drivers);
+    } catch (error) {
+      console.error('Error fetching available drivers:', error);
+      res.status(500).json({ error: 'Failed to fetch available drivers' });
     }
   });
 

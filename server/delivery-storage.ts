@@ -177,7 +177,13 @@ export class DeliveryDatabaseStorage implements IDeliveryStorage {
     return drivers[0];
   }
 
-  async getDriversNearby(latitude: number, longitude: number, radius: number): Promise<DriverWithUser[]> {
+  async getDriversNearby(
+    latitude: number, 
+    longitude: number, 
+    radius: number,
+    vehicleType?: string,
+    requiresOnline: boolean = true
+  ): Promise<DriverWithUser[]> {
     // Using the Haversine formula to calculate distances
     const haversineFormula = sql`(
       6371 * acos(
@@ -189,23 +195,83 @@ export class DeliveryDatabaseStorage implements IDeliveryStorage {
       )
     )`;
     
+    // Build the where conditions
+    const conditions = [
+      eq(schema.drivers.isAvailable, true),
+      lte(haversineFormula, radius)
+    ];
+    
+    // Add online condition if required
+    if (requiresOnline) {
+      conditions.push(eq(schema.drivers.isOnline, true));
+    }
+    
+    // Add vehicle type filter if specified
+    if (vehicleType) {
+      conditions.push(eq(schema.drivers.vehicleType, vehicleType));
+    }
+    
+    // Include drivers with recent location updates (within last 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    conditions.push(or(
+      gt(schema.drivers.lastLocationUpdate, fiveMinutesAgo),
+      isNull(schema.drivers.lastLocationUpdate)
+    ));
+    
+    // Execute the query with all conditions
     const driversWithUsers = await db
       .select({
         driver: schema.drivers,
-        user: schema.users
+        user: schema.users,
+        distance: haversineFormula
       })
       .from(schema.drivers)
       .innerJoin(schema.users, eq(schema.drivers.userId, schema.users.id))
-      .where(and(
-        eq(schema.drivers.isAvailable, true),
-        lte(haversineFormula, radius)
-      ));
+      .where(and(...conditions))
+      .orderBy(haversineFormula);
     
-    // Merge driver and user data
+    // Merge driver and user data and include distance
     return driversWithUsers.map(row => ({
       ...row.driver,
-      user: row.user
+      user: row.user,
+      distance: row.distance
     }));
+  }
+  
+  async getAvailableDriversForDelivery(
+    pickupLatitude: number,
+    pickupLongitude: number,
+    requiredVehicleType: string,
+    isSmallParcel: boolean = false
+  ): Promise<DriverWithUser[]> {
+    // Get drivers within 10km radius
+    const nearbyDrivers = await this.getDriversNearby(
+      pickupLatitude,
+      pickupLongitude,
+      10, // 10km radius
+      requiredVehicleType,
+      true // must be online
+    );
+    
+    // Filter drivers based on additional criteria
+    return nearbyDrivers.filter(driver => {
+      // For small parcels, check if driver supports parcels
+      if (isSmallParcel && !driver.supportsParcel) {
+        return false;
+      }
+      
+      // For furniture, check if driver supports furniture
+      if (!isSmallParcel && !driver.supportsFurniture) {
+        return false;
+      }
+      
+      // Make sure driver is not currently assigned to another delivery
+      if (driver.currentDeliveryId) {
+        return false;
+      }
+      
+      return true;
+    });
   }
 
   async createDriver(driverData: InsertDriver): Promise<Driver> {
@@ -222,11 +288,41 @@ export class DeliveryDatabaseStorage implements IDeliveryStorage {
     return driver;
   }
 
-  async updateDriverLocation(id: number, latitude: number, longitude: number): Promise<Driver> {
+  async updateDriverLocation(
+    id: number, 
+    latitude: number, 
+    longitude: number, 
+    heading?: number, 
+    speed?: number
+  ): Promise<Driver> {
+    const now = new Date();
+    const updateData: any = { 
+      latitude, 
+      longitude,
+      lastLocationUpdate: now
+    };
+    
+    if (heading !== undefined) {
+      updateData.heading = heading;
+    }
+    
+    if (speed !== undefined) {
+      updateData.speed = speed;
+    }
+    
+    const [driver] = await db.update(schema.drivers)
+      .set(updateData)
+      .where(eq(schema.drivers.id, id))
+      .returning();
+    
+    return driver;
+  }
+  
+  async updateDriverStatus(id: number, isOnline: boolean, isAvailable: boolean): Promise<Driver> {
     const [driver] = await db.update(schema.drivers)
       .set({ 
-        latitude, 
-        longitude 
+        isOnline, 
+        isAvailable
       })
       .where(eq(schema.drivers.id, id))
       .returning();
