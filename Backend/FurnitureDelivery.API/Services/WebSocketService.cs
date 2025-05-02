@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using FurnitureDelivery.API.Data;
 using FurnitureDelivery.API.DTOs;
+using FurnitureDelivery.API.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace FurnitureDelivery.API.Services
 {
