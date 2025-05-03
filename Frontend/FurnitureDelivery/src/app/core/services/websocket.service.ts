@@ -1,143 +1,116 @@
 import { Injectable } from '@angular/core';
-import { Observable, Subject, filter, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-
-export interface WebSocketMessage {
-  type: string;
-  payload: any;
-}
 
 @Injectable({
   providedIn: 'root'
 })
 export class WebSocketService {
   private socket: WebSocket | null = null;
-  private messageSubject = new Subject<WebSocketMessage>();
-  private reconnectInterval = 5000; // 5 seconds
-  private maxReconnectAttempts = 5;
   private reconnectAttempts = 0;
-  private isConnecting = false;
-
-  constructor() { }
-
-  /**
-   * Connect to the WebSocket server
-   */
+  private maxReconnectAttempts = 5;
+  private reconnectTimeout = 3000; // 3 seconds
+  private eventHandlers: { [event: string]: ((data: any) => void)[] } = {};
+  private isConnected = false;
+  
+  constructor() {}
+  
   connect(): void {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-      console.log('WebSocket is already connected or connecting');
+      console.log('WebSocket connection already established or connecting');
       return;
     }
-
-    if (this.isConnecting) {
-      console.log('WebSocket connection attempt already in progress');
-      return;
-    }
-
-    this.isConnecting = true;
-    console.log('Connecting to WebSocket server...');
     
     try {
-      this.socket = new WebSocket(environment.wsUrl);
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
       
-      this.socket.onopen = (event) => {
+      this.socket = new WebSocket(wsUrl);
+      
+      this.socket.onopen = () => {
         console.log('WebSocket connection established');
-        this.isConnecting = false;
+        this.isConnected = true;
         this.reconnectAttempts = 0;
       };
       
       this.socket.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data) as WebSocketMessage;
-          this.messageSubject.next(message);
+          const data = JSON.parse(event.data);
+          const eventType = data.type;
+          const payload = data.payload;
+          
+          if (eventType && this.eventHandlers[eventType]) {
+            this.eventHandlers[eventType].forEach(handler => {
+              handler(payload);
+            });
+          }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('Error processing WebSocket message:', error);
         }
       };
       
       this.socket.onclose = (event) => {
-        console.log('WebSocket connection closed:', event.code, event.reason);
-        this.socket = null;
-        this.isConnecting = false;
+        console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+        this.isConnected = false;
         
         // Attempt to reconnect if not a normal closure
-        if (event.code !== 1000) {
-          this.tryReconnect();
+        if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.reconnectAttempts++;
+          console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+          setTimeout(() => this.connect(), this.reconnectTimeout);
         }
       };
       
       this.socket.onerror = (error) => {
         console.error('WebSocket error:', error);
-        this.isConnecting = false;
       };
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
-      this.isConnecting = false;
-      this.tryReconnect();
     }
   }
-
-  /**
-   * Attempt to reconnect to the WebSocket server
-   */
-  private tryReconnect(): void {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-      
-      setTimeout(() => {
-        this.connect();
-      }, this.reconnectInterval);
-    } else {
-      console.log('Maximum reconnect attempts reached. Please try refreshing the page.');
-    }
-  }
-
-  /**
-   * Disconnect from the WebSocket server
-   */
+  
   disconnect(): void {
     if (this.socket) {
       this.socket.close();
       this.socket = null;
     }
   }
-
-  /**
-   * Send a message through the WebSocket connection
-   */
-  sendMessage(type: string, payload: any): void {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      const message: WebSocketMessage = { type, payload };
-      this.socket.send(JSON.stringify(message));
+  
+  on(event: string, handler: (data: any) => void): void {
+    if (!this.eventHandlers[event]) {
+      this.eventHandlers[event] = [];
+    }
+    
+    this.eventHandlers[event].push(handler);
+  }
+  
+  off(event: string, handler?: (data: any) => void): void {
+    if (!this.eventHandlers[event]) return;
+    
+    if (handler) {
+      const index = this.eventHandlers[event].indexOf(handler);
+      if (index !== -1) {
+        this.eventHandlers[event].splice(index, 1);
+      }
     } else {
-      console.error('WebSocket is not connected. Cannot send message.');
-      // Attempt to reconnect
-      this.connect();
+      delete this.eventHandlers[event];
     }
   }
-
-  /**
-   * Get all messages from the WebSocket
-   */
-  getMessages(): Observable<WebSocketMessage> {
-    return this.messageSubject.asObservable();
+  
+  emit(event: string, data: any): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket is not connected');
+      return;
+    }
+    
+    const message = JSON.stringify({
+      type: event,
+      payload: data
+    });
+    
+    this.socket.send(message);
   }
-
-  /**
-   * Get messages filtered by type
-   */
-  getMessagesByType(type: string): Observable<any> {
-    return this.messageSubject.asObservable().pipe(
-      filter(message => message.type === type),
-      map(message => message.payload)
-    );
-  }
-
-  /**
-   * Check if the WebSocket is currently connected
-   */
-  isConnected(): boolean {
-    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+  
+  isSocketConnected(): boolean {
+    return this.isConnected;
   }
 }

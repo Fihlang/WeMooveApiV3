@@ -1,0 +1,166 @@
+.booking-detail-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.booking-id {
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.booking-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.booking-status .badge {
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+}
+
+.booking-time, .booking-time-remaining, .booking-location {
+  font-size: 1rem;
+  color: #495057;
+}
+
+.booking-time i, .booking-time-remaining i, .booking-location i {
+  color: #6c757d;
+}
+
+.professional-avatar img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.professional-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.professional-rating i {
+  color: #ffc107;
+}
+
+.rating-value {
+  font-weight: 600;
+  margin-right: 0.3rem;
+}
+
+.price-value {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+.price-details {
+  font-size: 0.9rem;
+}
+
+.items-description, .special-instructions {
+  color: #495057;
+  line-height: 1.6;
+}
+
+.info-item {
+  text-align: center;
+  padding: 1rem;
+}
+
+.info-item i {
+  font-size: 2rem;
+  color: #0d6efd;
+  margin-bottom: 1rem;
+}
+
+.info-item h6 {
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+
+.info-item p {
+  font-size: 0.9rem;
+  color: #6c757d;
+  line-height: 1.6;
+}
+
+/* Timeline styles */
+.booking-timeline {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.booking-timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0.55rem;
+  width: 2px;
+  background-color: #dee2e6;
+}
+
+.timeline-marker {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background-color: #fff;
+  border: 2px solid #dee2e6;
+  z-index: 1;
+}
+
+.timeline-marker.active {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.timeline-title {
+  font-weight: 500;
+}
+
+.timeline-date {
+  font-size: 0.8rem;
+}
+
+/* Status colors */
+.text-warning {
+  color: #ffc107;
+}
+
+.text-primary {
+  color: #0d6efd;
+}
+
+.text-info {
+  color: #17a2b8;
+}
+
+.text-success {
+  color: #198754;
+}
+
+.text-danger {
+  color: #dc3545;
+}
+
+/* Responsive styles */
+@media (max-width: 767px) {
+  .col-md-4, .col-md-6, .col-md-8 {
+    margin-bottom: 1.5rem;
+  }
+  
+  .booking-price {
+    text-align: left;
+    margin-top: 1rem;
+  }
+  
+  .professional-avatar img {
+    width: 60px;
+    height: 60px;
+  }
+}

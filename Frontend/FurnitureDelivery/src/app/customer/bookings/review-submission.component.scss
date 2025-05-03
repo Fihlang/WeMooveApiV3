@@ -1,0 +1,115 @@
+.review-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.professional-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.professional-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  color: #212529;
+}
+
+.service-type .badge {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.service-date {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.rating-stars {
+  font-size: 2.5rem;
+  cursor: pointer;
+}
+
+.star-icon {
+  margin: 0 0.2rem;
+  transition: transform 0.2s ease;
+}
+
+.star-icon:hover {
+  transform: scale(1.2);
+}
+
+.rating-label {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #0d6efd;
+}
+
+.review-tips {
+  background-color: #e9f4fc !important;
+  border-left: 4px solid #0d6efd;
+}
+
+.review-tips i {
+  color: #0d6efd;
+}
+
+.review-tips ul {
+  padding-left: 1.2rem;
+  color: #495057;
+}
+
+.guideline-item {
+  text-align: center;
+  padding: 1rem;
+}
+
+.guideline-item i {
+  font-size: 2rem;
+  color: #0d6efd;
+  margin-bottom: 1rem;
+}
+
+.guideline-item h6 {
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+
+.guideline-item p {
+  font-size: 0.9rem;
+  color: #6c757d;
+  line-height: 1.6;
+}
+
+/* Text colors */
+.text-warning {
+  color: #ffc107 !important;
+}
+
+.text-muted {
+  color: #dee2e6 !important;
+}
+
+/* Form validation */
+.text-danger {
+  font-size: 0.875rem;
+}
+
+/* Responsive styles */
+@media (max-width: 767px) {
+  .professional-image {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .rating-stars {
+    font-size: 2rem;
+  }
+  
+  .col-md-4, .col-md-8 {
+    margin-bottom: 1.5rem;
+  }
+}

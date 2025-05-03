@@ -1,168 +1,172 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, Subject, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { 
-  Professional, 
-  ProfessionalWithReviews, 
-  ProfessionalReview, 
+  Professional,
   ProfessionalBooking,
   ProfessionalSkill,
   BookingStatus,
   BookingType
 } from '../models/professional.model';
-import { WebsocketService } from './websocket.service';
+import { WebSocketService } from './websocket.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ProfessionalService {
-  private baseUrl = `${environment.apiUrl}/api`;
+  private apiUrl = environment.apiUrl;
+  private statusUpdateSubscriptions: { [key: number]: ((data: any) => void)[] } = {};
 
   constructor(
     private http: HttpClient,
-    private websocketService: WebsocketService
-  ) { }
-
-  /**
-   * Get a list of professionals with optional filtering
-   */
-  getProfessionals(
-    skill?: ProfessionalSkill,
-    latitude?: number,
-    longitude?: number,
-    radius?: number,
-    isAvailable?: boolean
-  ): Observable<Professional[]> {
-    let params = new HttpParams();
-    
-    if (skill) {
-      params = params.set('skill', skill);
-    }
-    
-    if (latitude && longitude && radius) {
-      params = params.set('latitude', latitude.toString());
-      params = params.set('longitude', longitude.toString());
-      params = params.set('radius', radius.toString());
-    }
-    
-    if (isAvailable !== undefined) {
-      params = params.set('isAvailable', isAvailable.toString());
-    }
-    
-    return this.http.get<Professional[]>(`${this.baseUrl}/professionals`, { params });
+    private wsService: WebSocketService
+  ) {
+    // Subscribe to WebSocket events for booking status updates
+    this.wsService.connect();
+    this.wsService.on('booking-status-update', (data: any) => {
+      const bookingId = data.bookingId;
+      if (bookingId && this.statusUpdateSubscriptions[bookingId]) {
+        this.statusUpdateSubscriptions[bookingId].forEach(callback => {
+          callback(data);
+        });
+      }
+    });
   }
 
-  /**
-   * Get a professional by ID with their reviews
-   */
-  getProfessionalWithReviews(id: number): Observable<ProfessionalWithReviews> {
-    return this.http.get<ProfessionalWithReviews>(`${this.baseUrl}/professionals/${id}`);
+  // Professional Listing and Details
+  getAllProfessionals(): Observable<Professional[]> {
+    return this.http.get<Professional[]>(`${this.apiUrl}/professionals`)
+      .pipe(
+        catchError(this.handleError)
+      );
   }
 
-  /**
-   * Get reviews for a professional
-   */
-  getProfessionalReviews(id: number): Observable<ProfessionalReview[]> {
-    return this.http.get<ProfessionalReview[]>(`${this.baseUrl}/professionals/${id}/reviews`);
+  getProfessionalsBySkill(skill: ProfessionalSkill): Observable<Professional[]> {
+    return this.http.get<Professional[]>(`${this.apiUrl}/professionals/skill/${skill}`)
+      .pipe(
+        catchError(this.handleError)
+      );
   }
 
-  /**
-   * Create a booking for a professional
-   */
+  getProfessional(id: number): Observable<Professional> {
+    return this.http.get<Professional>(`${this.apiUrl}/professionals/${id}`)
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
+
+  // Booking Management
   createBooking(booking: Partial<ProfessionalBooking>): Observable<ProfessionalBooking> {
-    return this.http.post<ProfessionalBooking>(`${this.baseUrl}/professional-bookings`, booking);
+    return this.http.post<ProfessionalBooking>(`${this.apiUrl}/bookings`, booking)
+      .pipe(
+        catchError(this.handleError)
+      );
   }
 
-  /**
-   * Get bookings for a customer
-   */
-  getCustomerBookings(customerId: number, status?: BookingStatus): Observable<ProfessionalBooking[]> {
-    let params = new HttpParams();
-    
-    if (status) {
-      params = params.set('status', status);
-    }
-    
-    return this.http.get<ProfessionalBooking[]>(
-      `${this.baseUrl}/customers/${customerId}/professional-bookings`, 
-      { params }
-    );
-  }
-
-  /**
-   * Get bookings for a professional
-   */
-  getProfessionalBookings(professionalId: number, status?: BookingStatus): Observable<ProfessionalBooking[]> {
-    let params = new HttpParams();
-    
-    if (status) {
-      params = params.set('status', status);
-    }
-    
-    return this.http.get<ProfessionalBooking[]>(
-      `${this.baseUrl}/professionals/${professionalId}/bookings`,
-      { params }
-    );
-  }
-
-  /**
-   * Get a specific booking by ID
-   */
   getBooking(id: number): Observable<ProfessionalBooking> {
-    return this.http.get<ProfessionalBooking>(`${this.baseUrl}/professional-bookings/${id}`);
+    return this.http.get<ProfessionalBooking>(`${this.apiUrl}/bookings/${id}`)
+      .pipe(
+        catchError(this.handleError)
+      );
   }
 
-  /**
-   * Update booking status
-   */
-  updateBookingStatus(id: number, status: BookingStatus): Observable<ProfessionalBooking> {
+  getCustomerBookings(customerId: number): Observable<ProfessionalBooking[]> {
+    return this.http.get<ProfessionalBooking[]>(`${this.apiUrl}/customers/${customerId}/bookings`)
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
+
+  updateBookingStatus(bookingId: number, status: BookingStatus): Observable<ProfessionalBooking> {
     return this.http.put<ProfessionalBooking>(
-      `${this.baseUrl}/professional-bookings/${id}/status`,
+      `${this.apiUrl}/bookings/${bookingId}/status`, 
       { status }
+    ).pipe(
+      catchError(this.handleError)
     );
   }
 
-  /**
-   * Submit a review for a professional
-   */
+  // Real-time booking status updates
+  subscribeToBookingUpdates(bookingId: number, callback: (data: any) => void): void {
+    // Initialize array if it doesn't exist
+    if (!this.statusUpdateSubscriptions[bookingId]) {
+      this.statusUpdateSubscriptions[bookingId] = [];
+    }
+    
+    // Add callback to array
+    this.statusUpdateSubscriptions[bookingId].push(callback);
+    
+    // Subscribe to this specific booking
+    this.wsService.emit('subscribe-booking', { bookingId });
+  }
+
+  unsubscribeFromBookingUpdates(bookingId: number, callback?: (data: any) => void): void {
+    // If callback is provided, remove just that callback
+    if (callback && this.statusUpdateSubscriptions[bookingId]) {
+      const index = this.statusUpdateSubscriptions[bookingId].indexOf(callback);
+      if (index !== -1) {
+        this.statusUpdateSubscriptions[bookingId].splice(index, 1);
+      }
+    } else {
+      // Otherwise, remove all callbacks for this booking
+      delete this.statusUpdateSubscriptions[bookingId];
+    }
+    
+    // If no more callbacks, unsubscribe from this booking
+    if (!this.statusUpdateSubscriptions[bookingId] || 
+        this.statusUpdateSubscriptions[bookingId].length === 0) {
+      this.wsService.emit('unsubscribe-booking', { bookingId });
+    }
+  }
+
+  // Review Management
   submitReview(
     professionalId: number, 
     bookingId: number, 
     rating: number, 
-    comment: string, 
+    comment: string,
     serviceType: ProfessionalSkill
-  ): Observable<ProfessionalReview> {
-    return this.http.post<ProfessionalReview>(
-      `${this.baseUrl}/professionals/${professionalId}/reviews`,
-      { bookingId, rating, comment, serviceType }
+  ): Observable<any> {
+    return this.http.post(`${this.apiUrl}/reviews`, {
+      professionalId,
+      bookingId,
+      rating,
+      comment,
+      serviceType
+    }).pipe(
+      catchError(this.handleError)
     );
   }
 
-  /**
-   * Subscribe to real-time professional status updates 
-   * (when professionals come online/offline or update availability)
-   */
-  subscribeToStatusUpdates(callback: (data: any) => void): void {
-    this.websocketService.subscribe('professional-status', callback);
+  getProfessionalReviews(professionalId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/professionals/${professionalId}/reviews`)
+      .pipe(
+        catchError(this.handleError)
+      );
   }
 
-  /**
-   * Subscribe to real-time booking updates
-   */
-  subscribeToBookingUpdates(bookingId: number, callback: (data: any) => void): void {
-    this.websocketService.subscribe(`booking-${bookingId}`, callback);
+  // Availability Management
+  getProfessionalAvailability(professionalId: number, date: string): Observable<any[]> {
+    return this.http.get<any[]>(
+      `${this.apiUrl}/professionals/${professionalId}/availability?date=${date}`
+    ).pipe(
+      catchError(this.handleError)
+    );
   }
 
-  /**
-   * Get available professionals for immediate booking
-   */
-  getAvailableProfessionals(
-    latitude: number,
-    longitude: number,
-    radius: number = 10,
-    skill: ProfessionalSkill
-  ): Observable<Professional[]> {
-    return this.getProfessionals(skill, latitude, longitude, radius, true);
+  // Error handling
+  private handleError(error: any) {
+    let errorMessage = 'An unknown error occurred!';
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      // Server-side error
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    }
+    console.error(errorMessage);
+    return throwError(() => new Error(errorMessage));
   }
 }

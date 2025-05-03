@@ -1,75 +1,12 @@
 import { User } from './user.model';
+import { Address } from './address.model';
 
-/**
- * Skill categories for professionals
- */
 export enum ProfessionalSkill {
   MOVING = 'moving',
   ASSEMBLY = 'assembly',
   BOTH = 'both'
 }
 
-/**
- * Represents a professional mover or assembler
- */
-export interface Professional {
-  id: number;
-  userId: number;
-  user?: User;
-  skills: ProfessionalSkill;
-  hourlyRate: number;
-  yearsOfExperience: number;
-  biography: string;
-  certifications: string[];
-  specialties: string[];
-  isAvailable: boolean;
-  isVerified: boolean;
-  rating: number;
-  totalJobs: number;
-  completedJobs: number;
-  currentLatitude?: number;
-  currentLongitude?: number;
-  profileImageUrl?: string;
-}
-
-/**
- * Represents a professional with review details for display
- */
-export interface ProfessionalWithReviews extends Professional {
-  recentReviews: ProfessionalReview[];
-}
-
-/**
- * Represents a review for a professional
- */
-export interface ProfessionalReview {
-  id: number;
-  professionalId: number;
-  customerId: number;
-  customer?: {
-    id: number;
-    firstName: string;
-    lastName: string;
-    avatarUrl?: string;
-  };
-  bookingId: number;
-  rating: number;
-  comment: string;
-  createdAt: Date;
-  serviceType: ProfessionalSkill;
-}
-
-/**
- * Type of booking for a professional
- */
-export enum BookingType {
-  MOVING = 'moving',
-  ASSEMBLY = 'assembly'
-}
-
-/**
- * Status of a professional booking
- */
 export enum BookingStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -78,34 +15,102 @@ export enum BookingStatus {
   CANCELLED = 'cancelled'
 }
 
-/**
- * Represents a booking for a professional service
- */
+export enum BookingType {
+  MOVING = 'moving',
+  ASSEMBLY = 'assembly'
+}
+
+export enum ServiceTier {
+  BASIC = 'basic',
+  STANDARD = 'standard',
+  PREMIUM = 'premium'
+}
+
+export interface Professional {
+  id: number;
+  userId: number;
+  user?: User;
+  skills: ProfessionalSkill;
+  experience: number;
+  hourlyRate: number;
+  bio: string;
+  profileImageUrl: string | null;
+  licensedAndInsured: boolean;
+  serviceArea: string;
+  backgroundChecked: boolean;
+  rating: number;
+  totalReviews: number;
+  totalJobs: number;
+  createdAt: Date;
+  availabilityStartTime?: string;
+  availabilityEndTime?: string;
+  workDays?: string[];
+}
+
+export interface ProfessionalReview {
+  id: number;
+  customerId: number;
+  customer?: {
+    id: number;
+    userId: number;
+    user?: User;
+  };
+  professionalId: number;
+  bookingId: number;
+  rating: number;
+  comment: string;
+  serviceType: ProfessionalSkill;
+  createdAt: Date;
+}
+
 export interface ProfessionalBooking {
   id: number;
+  customerId: number;
   professionalId: number;
   professional?: Professional;
-  customerId: number;
-  customer?: User;
-  deliveryId?: number;
   bookingType: BookingType;
-  status: BookingStatus;
+  serviceTier: ServiceTier;
   scheduledTime: Date;
-  completedTime?: Date;
-  duration: number; // In hours
+  duration: number;
+  addressId: number;
+  address: Address;
   totalCost: number;
-  address: {
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    province: string;
-    zipCode: string;
-    country: string;
-    latitude?: number;
-    longitude?: number;
-  };
   itemsDescription: string;
   specialInstructions?: string;
+  numberOfMovers?: number;
+  hasHeavyItems?: boolean;
+  hasStairs?: boolean;
+  floorNumber?: number;
+  status: BookingStatus;
   createdAt: Date;
-  updatedAt: Date;
+  completedTime?: Date;
+}
+
+export interface TimeSlot {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+}
+
+export interface AvailabilityDay {
+  date: string;
+  dayName: string;
+  slots: TimeSlot[];
+}
+
+export interface BookingRequest {
+  customerId: number;
+  professionalId: number;
+  bookingType: BookingType;
+  serviceTier: ServiceTier;
+  scheduledTime: string;
+  duration: number;
+  addressId: number;
+  totalCost: number;
+  itemsDescription: string;
+  specialInstructions?: string;
+  numberOfMovers?: number;
+  hasHeavyItems?: boolean;
+  hasStairs?: boolean;
+  floorNumber?: number;
 }

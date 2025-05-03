@@ -1,0 +1,147 @@
+<div class="review-container container py-5">
+  <!-- Loading spinner -->
+  <div *ngIf="isLoading" class="d-flex justify-content-center my-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  
+  <!-- Error message -->
+  <div *ngIf="error" class="alert alert-danger">
+    {{ error }}
+    <button class="btn btn-outline-danger ms-3" (click)="goBack()">Go Back</button>
+  </div>
+  
+  <!-- Success message -->
+  <div *ngIf="success" class="alert alert-success">
+    {{ success }}
+  </div>
+  
+  <!-- Review form -->
+  <div *ngIf="!isLoading && booking && !error && !success" class="review-form">
+    <!-- Header with back button -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <button class="btn btn-outline-secondary" (click)="goBack()">
+        <i class="bi bi-arrow-left"></i> Back to Booking
+      </button>
+    </div>
+    
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">Rate Your Experience</h2>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4 text-center">
+            <img 
+              [src]="booking.professional?.profileImageUrl || 'assets/images/default-profile.png'" 
+              alt="{{ booking.professional?.user?.firstName }} {{ booking.professional?.user?.lastName }}"
+              class="img-fluid rounded-circle professional-image mb-3">
+            <h4 class="professional-name">
+              {{ booking.professional?.user?.firstName }} {{ booking.professional?.user?.lastName }}
+            </h4>
+            <div class="service-info mb-3">
+              <div class="service-type mb-2">
+                <span class="badge bg-primary py-2 px-3">{{ booking.bookingType }}</span>
+              </div>
+              <div class="service-date">
+                {{ booking.scheduledTime | date:'mediumDate' }}
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-8">
+            <form [formGroup]="reviewForm" (ngSubmit)="submitReview()">
+              <div class="mb-4">
+                <label class="form-label">How would you rate your experience?</label>
+                <div class="rating-stars mb-2">
+                  <div class="d-flex justify-content-center">
+                    <i *ngFor="let star of [1, 2, 3, 4, 5]" 
+                       class="bi bi-{{ getEffectiveRating(star) }} {{ getStarColor(star) }} star-icon"
+                       (click)="setRating(star)"
+                       (mouseenter)="setHoverRating(star)"
+                       (mouseleave)="clearHoverRating()"></i>
+                  </div>
+                </div>
+                <div class="rating-label text-center mb-3">
+                  {{ getRatingLabel() }}
+                </div>
+                <div *ngIf="reviewForm.get('rating')?.errors?.required && reviewForm.get('rating')?.touched" 
+                     class="text-danger text-center">
+                  Please select a rating
+                </div>
+              </div>
+              
+              <div class="mb-4">
+                <label for="comment" class="form-label">Share your experience</label>
+                <textarea id="comment" class="form-control" rows="5" formControlName="comment" 
+                          placeholder="Tell us about your experience with this professional..."></textarea>
+                <div *ngIf="reviewForm.get('comment')?.errors?.required && reviewForm.get('comment')?.touched" 
+                     class="text-danger mt-1">
+                  Please share your experience
+                </div>
+                <div *ngIf="reviewForm.get('comment')?.errors?.minlength && reviewForm.get('comment')?.touched" 
+                     class="text-danger mt-1">
+                  Your review must be at least 10 characters
+                </div>
+                <small class="form-text text-muted mt-2">
+                  Your review helps other customers and improves our service quality.
+                </small>
+              </div>
+              
+              <div class="review-tips bg-light p-3 rounded mb-4">
+                <h6 class="mb-2"><i class="bi bi-lightbulb me-2"></i> Review Tips</h6>
+                <ul class="small mb-0">
+                  <li>Mention specific aspects of the service that impressed you or could be improved</li>
+                  <li>Comment on punctuality, professionalism, and quality of work</li>
+                  <li>Avoid including personal information or offensive language</li>
+                </ul>
+              </div>
+              
+              <div class="text-end">
+                <button type="button" class="btn btn-outline-secondary me-2" (click)="goBack()">Cancel</button>
+                <button type="submit" class="btn btn-primary" 
+                        [disabled]="reviewForm.invalid || isSubmitting">
+                  <i class="bi bi-check-circle me-2"></i>
+                  {{ isSubmitting ? 'Submitting...' : 'Submit Review' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Review guidelines -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Review Guidelines</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="guideline-item">
+              <i class="bi bi-shield-check"></i>
+              <h6>Honest Feedback</h6>
+              <p>Please provide honest, constructive feedback based on your experience with the professional.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="guideline-item">
+              <i class="bi bi-eye-slash"></i>
+              <h6>Privacy Matters</h6>
+              <p>Do not include personal information about yourself or the professional in your review.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="guideline-item">
+              <i class="bi bi-chat-quote"></i>
+              <h6>Keep It Civil</h6>
+              <p>Use respectful language even when sharing criticism. Abusive content will not be published.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
