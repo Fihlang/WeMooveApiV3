@@ -1,0 +1,199 @@
+<div class="professional-detail-container container py-5">
+  <!-- Loading spinner -->
+  <div *ngIf="isLoading" class="d-flex justify-content-center my-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  
+  <!-- Error message -->
+  <div *ngIf="error" class="alert alert-danger">
+    {{ error }}
+    <button class="btn btn-outline-danger ms-3" (click)="goBack()">Go Back</button>
+  </div>
+  
+  <!-- Professional details -->
+  <div *ngIf="!isLoading && professional" class="professional-detail">
+    <!-- Back button and availability -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <button class="btn btn-outline-secondary" (click)="goBack()">
+        <i class="bi bi-arrow-left"></i> Back to Professionals
+      </button>
+      <div class="availability-badge">
+        <span class="badge rounded-pill py-2 px-3" [ngClass]="professional.isAvailable ? 'bg-success' : 'bg-secondary'">
+          <i class="bi" [ngClass]="professional.isAvailable ? 'bi-check-circle' : 'bi-x-circle'"></i>
+          {{ professional.isAvailable ? 'Available Now' : 'Unavailable' }}
+        </span>
+      </div>
+    </div>
+    
+    <!-- Profile header -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-3 text-center">
+            <img 
+              [src]="professional.profileImageUrl || 'assets/images/default-profile.png'" 
+              alt="{{ professional.user?.firstName }} {{ professional.user?.lastName }}"
+              class="img-fluid rounded-circle professional-image mb-3">
+            <div class="professional-rating">
+              <div class="stars-container mb-2">
+                <ng-container *ngFor="let star of getStarArray(professional.rating)">
+                  <i class="bi" 
+                    [ngClass]="star === 1 ? 'bi-star-fill' : (star === 0.5 ? 'bi-star-half' : 'bi-star')"
+                    [ngStyle]="{'color': star > 0 ? '#ffc107' : '#6c757d'}"></i>
+                </ng-container>
+              </div>
+              <span class="rating-value">{{ professional.rating.toFixed(1) }} / 5.0</span>
+              <div class="text-muted">Based on {{ professional.totalJobs }} jobs</div>
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <h2 class="professional-name">
+              {{ professional.user?.firstName }} {{ professional.user?.lastName }}
+            </h2>
+            <div class="professional-specialty mb-3">
+              <span class="badge bg-primary me-2">{{ getSkillLabel(professional.skills) }}</span>
+              <span class="badge bg-secondary me-1" *ngFor="let specialty of professional.specialties">
+                {{ specialty }}
+              </span>
+            </div>
+            <div class="professional-stats mb-3">
+              <span class="stat-item">
+                <i class="bi bi-cash"></i> R{{ professional.hourlyRate }}/hr
+              </span>
+              <span class="stat-item">
+                <i class="bi bi-briefcase"></i> {{ professional.yearsOfExperience }} years experience
+              </span>
+              <span class="stat-item">
+                <i class="bi bi-check-circle"></i> {{ professional.completedJobs }} jobs completed
+              </span>
+            </div>
+            <p class="professional-bio">{{ professional.biography }}</p>
+          </div>
+          
+          <div class="col-md-3 d-flex align-items-center justify-content-center">
+            <button 
+              class="btn btn-primary btn-lg" 
+              [disabled]="!professional.isAvailable"
+              (click)="bookProfessional()">
+              Book Now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Certifications and specialties -->
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Certifications</h5>
+          </div>
+          <div class="card-body">
+            <ul class="certification-list">
+              <li *ngFor="let cert of professional.certifications">
+                <i class="bi bi-patch-check-fill text-primary"></i> {{ cert }}
+              </li>
+              <li *ngIf="professional.certifications.length === 0" class="text-muted">
+                No certifications listed
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Specialties</h5>
+          </div>
+          <div class="card-body">
+            <div class="specialty-tags">
+              <span class="badge rounded-pill bg-primary me-2 mb-2" *ngFor="let specialty of professional.specialties">
+                {{ specialty }}
+              </span>
+              <span *ngIf="professional.specialties.length === 0" class="text-muted">
+                No specialties listed
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Reviews section -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Customer Reviews</h5>
+        <button *ngIf="professional.recentReviews?.length > 0 && reviews.length <= professional.recentReviews.length" 
+                class="btn btn-sm btn-outline-primary"
+                (click)="loadAllReviews()">
+          Load All Reviews
+        </button>
+      </div>
+      <div class="card-body">
+        <div *ngIf="reviews.length === 0" class="text-center py-4 text-muted">
+          <i class="bi bi-chat-square-text display-4"></i>
+          <p class="mt-3">No reviews yet</p>
+        </div>
+        
+        <div *ngIf="reviews.length > 0" class="reviews-list">
+          <div class="review-item mb-4" *ngFor="let review of getPagedReviews()">
+            <div class="d-flex">
+              <div class="review-avatar me-3">
+                <img 
+                  [src]="review.customer?.avatarUrl || 'assets/images/default-avatar.png'" 
+                  alt="{{ review.customer?.firstName }}"
+                  class="img-fluid rounded-circle">
+              </div>
+              <div class="review-content">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <h5 class="review-author mb-1">
+                      {{ review.customer?.firstName }} {{ review.customer?.lastName?.charAt(0) }}.
+                    </h5>
+                    <div class="review-rating">
+                      <ng-container *ngFor="let star of getStarArray(review.rating)">
+                        <i class="bi" 
+                          [ngClass]="star === 1 ? 'bi-star-fill' : (star === 0.5 ? 'bi-star-half' : 'bi-star')"
+                          [ngStyle]="{'color': star > 0 ? '#ffc107' : '#6c757d'}"></i>
+                      </ng-container>
+                      <span class="text-muted ms-2">{{ review.rating.toFixed(1) }}</span>
+                    </div>
+                  </div>
+                  <div class="review-date text-muted">
+                    {{ review.createdAt | date:'mediumDate' }}
+                  </div>
+                </div>
+                <div class="review-service-type mt-1 mb-2">
+                  <span class="badge bg-info">{{ review.serviceType }}</span>
+                </div>
+                <p class="review-text">{{ review.comment }}</p>
+              </div>
+            </div>
+            <hr *ngIf="!isLastReview(review)" class="my-4">
+          </div>
+          
+          <!-- Pagination -->
+          <nav *ngIf="reviews.length > pageSize">
+            <ul class="pagination justify-content-center">
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <a class="page-link" href="javascript:void(0)" (click)="changePage(currentPage - 1)">Previous</a>
+              </li>
+              <li class="page-item" *ngFor="let page of [].constructor(getTotalPages()); let i = index" 
+                  [class.active]="currentPage === i + 1">
+                <a class="page-link" href="javascript:void(0)" (click)="changePage(i + 1)">{{ i + 1 }}</a>
+              </li>
+              <li class="page-item" [class.disabled]="currentPage === getTotalPages()">
+                <a class="page-link" href="javascript:void(0)" (click)="changePage(currentPage + 1)">Next</a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

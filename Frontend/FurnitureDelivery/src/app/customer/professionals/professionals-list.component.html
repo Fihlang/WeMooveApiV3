@@ -1,0 +1,202 @@
+<div class="professionals-container container py-5">
+  <div class="row">
+    <div class="col-md-3">
+      <!-- Filters sidebar -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Filter Professionals</h5>
+        </div>
+        <div class="card-body">
+          <form [formGroup]="filterForm">
+            <div class="mb-3">
+              <label for="skill" class="form-label">Service Type</label>
+              <select id="skill" class="form-select" formControlName="skill">
+                <option [ngValue]="null">All Services</option>
+                <option [ngValue]="ProfessionalSkill.MOVING">Moving Only</option>
+                <option [ngValue]="ProfessionalSkill.ASSEMBLY">Assembly Only</option>
+                <option [ngValue]="ProfessionalSkill.BOTH">Moving & Assembly</option>
+              </select>
+            </div>
+            
+            <div class="mb-3">
+              <label for="minRating" class="form-label">Minimum Rating: {{ filterForm.get('minRating')?.value }}</label>
+              <input type="range" class="form-range" id="minRating" min="0" max="5" step="0.5" formControlName="minRating">
+            </div>
+            
+            <div class="mb-3">
+              <label for="maxPrice" class="form-label">Maximum Hourly Rate: R{{ filterForm.get('maxPrice')?.value }}</label>
+              <input type="range" class="form-range" id="maxPrice" min="100" max="1000" step="50" formControlName="maxPrice">
+            </div>
+            
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="onlyAvailable" formControlName="onlyAvailable">
+              <label class="form-check-label" for="onlyAvailable">Available Now</label>
+            </div>
+            
+            <div class="mb-3">
+              <label for="sortBy" class="form-label">Sort By</label>
+              <select id="sortBy" class="form-select" formControlName="sortBy">
+                <option value="rating">Rating (Highest First)</option>
+                <option value="price">Price (Lowest First)</option>
+                <option value="experience">Experience (Most First)</option>
+              </select>
+            </div>
+            
+            <button type="button" class="btn btn-outline-secondary w-100" (click)="resetFilters()">Reset Filters</button>
+          </form>
+        </div>
+      </div>
+      
+      <!-- Location card -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Your Location</h5>
+        </div>
+        <div class="card-body">
+          <div *ngIf="userLocation" class="location-status text-success">
+            <i class="bi bi-geo-alt-fill"></i> Location found
+            <p class="small text-muted">
+              Showing professionals in your area
+            </p>
+          </div>
+          <div *ngIf="!userLocation" class="location-status text-danger">
+            <i class="bi bi-geo-alt-fill"></i> Location not available
+            <p class="small text-muted">
+              Allow location access to find professionals near you
+            </p>
+            <button class="btn btn-sm btn-outline-primary" (click)="getUserLocation()">
+              Get Location
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-9">
+      <!-- Search and Header -->
+      <div class="row mb-4">
+        <div class="col-md-8">
+          <h1>Find Moving & Assembly Professionals</h1>
+          <p class="text-muted">Book skilled professionals to help with your furniture moves and assembly</p>
+        </div>
+        <div class="col-md-4">
+          <div class="input-group">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Search professionals..." 
+              (input)="onSearch($event)">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Loading spinner -->
+      <div *ngIf="isLoading" class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+      
+      <!-- Error message -->
+      <div *ngIf="error" class="alert alert-danger">
+        {{ error }}
+      </div>
+      
+      <!-- No results -->
+      <div *ngIf="!isLoading && filteredProfessionals.length === 0" class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No professionals found matching your criteria. Try adjusting your filters.
+      </div>
+      
+      <!-- Professionals list -->
+      <div *ngIf="!isLoading && filteredProfessionals.length > 0" class="professionals-list">
+        <div class="mb-3 text-end">
+          <span class="text-muted">{{ filteredProfessionals.length }} professionals found</span>
+        </div>
+        
+        <div class="card mb-3" *ngFor="let professional of getPagedProfessionals()">
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-3">
+                <div class="image-container text-center mb-3">
+                  <img 
+                    [src]="professional.profileImageUrl || 'assets/images/default-profile.png'" 
+                    alt="{{ professional.user?.firstName }} {{ professional.user?.lastName }}"
+                    class="img-fluid rounded-circle professional-image">
+                </div>
+                <div class="availability-badge text-center mb-3">
+                  <span class="badge rounded-pill" [ngClass]="professional.isAvailable ? 'bg-success' : 'bg-secondary'">
+                    {{ professional.isAvailable ? 'Available Now' : 'Unavailable' }}
+                  </span>
+                </div>
+                <div class="text-center distance-badge" *ngIf="professional.currentLatitude && professional.currentLongitude">
+                  <span class="badge bg-light text-dark">
+                    <i class="bi bi-geo-alt"></i> {{ getDistanceText(professional) }}
+                  </span>
+                </div>
+              </div>
+              
+              <div class="col-md-6">
+                <h4 class="professional-name">
+                  {{ professional.user?.firstName }} {{ professional.user?.lastName }}
+                </h4>
+                <p class="professional-specialty mb-1">
+                  <span class="badge bg-primary me-2">{{ getSkillLabel(professional.skills) }}</span>
+                  <span class="badge bg-secondary me-1" *ngFor="let specialty of professional.specialties | slice:0:3">
+                    {{ specialty }}
+                  </span>
+                </p>
+                <div class="professional-rating mb-2">
+                  <i class="bi bi-star-fill text-warning"></i>
+                  <span class="rating-value">{{ professional.rating }} / 5.0</span>
+                  <span class="text-muted">({{ professional.totalJobs }} jobs)</span>
+                </div>
+                <div class="professional-details mb-2">
+                  <span class="me-3"><i class="bi bi-cash"></i> R{{ professional.hourlyRate }}/hr</span>
+                  <span><i class="bi bi-briefcase"></i> {{ professional.yearsOfExperience }} years experience</span>
+                </div>
+                <p class="professional-bio text-truncate">{{ professional.biography }}</p>
+                <div *ngIf="professional.certifications.length > 0" class="certifications mt-2">
+                  <span class="text-muted me-2">Certifications:</span>
+                  <span class="badge bg-info me-1" *ngFor="let cert of professional.certifications | slice:0:2">
+                    {{ cert }}
+                  </span>
+                </div>
+              </div>
+              
+              <div class="col-md-3 d-flex flex-column justify-content-center">
+                <button 
+                  class="btn btn-outline-primary mb-2" 
+                  (click)="viewProfessionalDetails(professional)">
+                  View Profile
+                </button>
+                <button 
+                  class="btn btn-primary" 
+                  [disabled]="!professional.isAvailable"
+                  (click)="bookProfessional(professional)">
+                  Book Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Pagination -->
+        <nav *ngIf="filteredProfessionals.length > pageSize">
+          <ul class="pagination justify-content-center">
+            <li class="page-item" [class.disabled]="currentPage === 1">
+              <a class="page-link" href="javascript:void(0)" (click)="changePage(currentPage - 1)">Previous</a>
+            </li>
+            <li class="page-item" *ngFor="let page of [].constructor(getTotalPages()); let i = index" 
+                [class.active]="currentPage === i + 1">
+              <a class="page-link" href="javascript:void(0)" (click)="changePage(i + 1)">{{ i + 1 }}</a>
+            </li>
+            <li class="page-item" [class.disabled]="currentPage === getTotalPages()">
+              <a class="page-link" href="javascript:void(0)" (click)="changePage(currentPage + 1)">Next</a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>

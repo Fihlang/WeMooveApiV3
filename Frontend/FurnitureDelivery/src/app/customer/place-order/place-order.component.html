@@ -167,11 +167,112 @@
                   
                   <!-- Furniture specific form fields -->
                   <div *ngIf="deliveryType === 'furniture'" class="col-md-6">
-                    <h3>Furniture Items</h3>
-                    <div class="alert alert-info">
-                      <i class="bi bi-info-circle"></i> Furniture delivery implementation is in progress
-                    </div>
-                    <!-- Furniture items will be implemented in another phase -->
+                    <h3>Furniture Options</h3>
+                    
+                    <form [formGroup]="furnitureOptionsForm">
+                      <div class="mb-4">
+                        <h4>Service Level</h4>
+                        <div class="card mb-3" [ngClass]="{'bg-light border-primary': serviceTier === 'basic'}">
+                          <div class="card-body">
+                            <div class="form-check">
+                              <input class="form-check-input" type="radio" id="serviceBasic" 
+                                     [checked]="serviceTier === 'basic'" 
+                                     (change)="furnitureOptionsForm.patchValue({requiresMovingAssistance: false, requiresAssembly: false})">
+                              <label class="form-check-label" for="serviceBasic">
+                                <strong>Basic Service (Delivery Only)</strong> - R{{ SERVICE_PRICING['basic'].basePrice }}
+                                <p class="text-muted small mb-0">Drivers will deliver your furniture to your door. You'll need to move and assemble items yourself.</p>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="card mb-3" [ngClass]="{'bg-light border-primary': serviceTier === 'standard'}">
+                          <div class="card-body">
+                            <div class="form-check">
+                              <input class="form-check-input" type="radio" id="serviceStandard" 
+                                     [checked]="serviceTier === 'standard'"
+                                     (change)="furnitureOptionsForm.patchValue({requiresMovingAssistance: true, requiresAssembly: false})">
+                              <label class="form-check-label" for="serviceStandard">
+                                <strong>Standard Service (Moving Assistance)</strong> - R{{ SERVICE_PRICING['standard'].basePrice }}
+                                <p class="text-muted small mb-0">Movers will help bring furniture into your home and place it in the rooms you specify.</p>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="card mb-3" [ngClass]="{'bg-light border-primary': serviceTier === 'premium'}">
+                          <div class="card-body">
+                            <div class="form-check">
+                              <input class="form-check-input" type="radio" id="servicePremium" 
+                                     [checked]="serviceTier === 'premium'"
+                                     (change)="furnitureOptionsForm.patchValue({requiresMovingAssistance: true, requiresAssembly: true})">
+                              <label class="form-check-label" for="servicePremium">
+                                <strong>Premium Service (Moving & Assembly)</strong> - R{{ SERVICE_PRICING['premium'].basePrice }}
+                                <p class="text-muted small mb-0">Complete service: movers will deliver, place and fully assemble your furniture.</p>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="mb-3 form-check">
+                        <input type="checkbox" id="movingAssistance" class="form-check-input" formControlName="requiresMovingAssistance">
+                        <label for="movingAssistance" class="form-check-label">I need help moving furniture inside</label>
+                      </div>
+                      
+                      <div class="mb-3 form-check">
+                        <input type="checkbox" id="assembly" class="form-check-input" formControlName="requiresAssembly">
+                        <label for="assembly" class="form-check-label">I need help assembling furniture</label>
+                      </div>
+                      
+                      <hr>
+                      
+                      <h4>Delivery Location Details</h4>
+                      
+                      <div class="mb-3">
+                        <label for="numberOfMovers" class="form-label">Number of Movers Needed</label>
+                        <select id="numberOfMovers" class="form-select" formControlName="numberOfMovers">
+                          <option value="1">1 Mover (Small Items Only)</option>
+                          <option value="2">2 Movers (Standard)</option>
+                          <option value="3">3 Movers (Large Items)</option>
+                          <option value="4">4 Movers (Heavy/Multiple Items)</option>
+                        </select>
+                        <small class="text-muted">Standard service includes 2 movers. Additional movers incur extra charges.</small>
+                      </div>
+                      
+                      <div class="mb-3">
+                        <label for="heavyItems" class="form-label">Number of Heavy Items</label>
+                        <input type="number" id="heavyItems" class="form-control" formControlName="numberOfHeavyItems" min="0">
+                        <small class="text-muted">Heavy items require 2+ people to move (sofas, large beds, etc.)</small>
+                      </div>
+                      
+                      <div class="mb-3 form-check">
+                        <input type="checkbox" id="hasStairs" class="form-check-input" formControlName="hasStairs">
+                        <label for="hasStairs" class="form-check-label">Delivery location has stairs</label>
+                      </div>
+                      
+                      <div *ngIf="furnitureOptionsForm.get('hasStairs')?.value" class="row">
+                        <div class="col-md-6">
+                          <div class="mb-3">
+                            <label for="floorNumber" class="form-label">Floor Number</label>
+                            <input type="number" id="floorNumber" class="form-control" formControlName="floorNumber" min="0">
+                            <small class="text-muted">0 = Ground floor</small>
+                          </div>
+                        </div>
+                        <div class="col-md-6">
+                          <div class="mb-3 form-check mt-4">
+                            <input type="checkbox" id="hasElevator" class="form-check-input" formControlName="hasElevator">
+                            <label for="hasElevator" class="form-check-label">Building has elevator</label>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="mb-3">
+                        <label for="specialInstructions" class="form-label">Special Instructions</label>
+                        <textarea id="specialInstructions" class="form-control" rows="3" formControlName="specialInstructions" 
+                                  placeholder="E.g., specific assembly requirements, placement instructions, etc."></textarea>
+                      </div>
+                    </form>
                   </div>
                 </div>
               </form>
@@ -258,11 +359,40 @@
                     </table>
                   </div>
                   
-                  <!-- Furniture items display -->
+                  <!-- Furniture options display -->
                   <div *ngIf="deliveryType === 'furniture'">
-                    <div class="alert alert-info">
-                      Furniture items implementation in progress
-                    </div>
+                    <table class="table">
+                      <tbody>
+                        <tr>
+                          <th>Service Tier:</th>
+                          <td>{{ getServiceTierLabel(serviceTier) }}</td>
+                        </tr>
+                        <tr>
+                          <th>Moving Assistance:</th>
+                          <td>{{ furnitureOptionsForm.get('requiresMovingAssistance')?.value ? 'Yes' : 'No' }}</td>
+                        </tr>
+                        <tr>
+                          <th>Assembly Service:</th>
+                          <td>{{ furnitureOptionsForm.get('requiresAssembly')?.value ? 'Yes' : 'No' }}</td>
+                        </tr>
+                        <tr>
+                          <th>Number of Movers:</th>
+                          <td>{{ furnitureOptionsForm.get('numberOfMovers')?.value }} movers</td>
+                        </tr>
+                        <tr>
+                          <th>Heavy Items:</th>
+                          <td>{{ furnitureOptionsForm.get('numberOfHeavyItems')?.value || 0 }} items</td>
+                        </tr>
+                        <tr *ngIf="furnitureOptionsForm.get('hasStairs')?.value">
+                          <th>Floor Number:</th>
+                          <td>{{ furnitureOptionsForm.get('floorNumber')?.value }} {{ furnitureOptionsForm.get('hasElevator')?.value ? '(with elevator)' : '(no elevator)' }}</td>
+                        </tr>
+                        <tr *ngIf="furnitureOptionsForm.get('specialInstructions')?.value">
+                          <th>Special Instructions:</th>
+                          <td>{{ furnitureOptionsForm.get('specialInstructions')?.value }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -285,7 +415,14 @@
                       <tbody>
                         <tr>
                           <th>Base Price:</th>
-                          <td>R {{ deliveryType === 'parcel' ? '15.00' : '50.00' }}</td>
+                          <td>
+                            <ng-container *ngIf="deliveryType === 'parcel'">
+                              R 15.00
+                            </ng-container>
+                            <ng-container *ngIf="deliveryType === 'furniture'">
+                              R {{ SERVICE_PRICING[serviceTier].basePrice }}.00
+                            </ng-container>
+                          </td>
                         </tr>
                         
                         <!-- Parcel specific pricing -->
@@ -301,6 +438,30 @@
                           <tr *ngIf="parcelDetailsForm.get('requiresSpecialHandling')?.value">
                             <th>Special Handling Fee:</th>
                             <td>R 15.00</td>
+                          </tr>
+                        </ng-container>
+                        
+                        <!-- Furniture specific pricing -->
+                        <ng-container *ngIf="deliveryType === 'furniture'">
+                          <tr *ngIf="furnitureOptionsForm.get('requiresMovingAssistance')?.value && serviceTier !== 'basic'">
+                            <th>Moving Assistance:</th>
+                            <td>R {{ SERVICE_PRICING[serviceTier].movingAssistance }}.00</td>
+                          </tr>
+                          <tr *ngIf="furnitureOptionsForm.get('requiresAssembly')?.value && serviceTier === 'premium'">
+                            <th>Assembly Service:</th>
+                            <td>R {{ SERVICE_PRICING[serviceTier].assembly }}.00</td>
+                          </tr>
+                          <tr *ngIf="(furnitureOptionsForm.get('numberOfHeavyItems')?.value || 0) > 0">
+                            <th>Heavy Items Fee:</th>
+                            <td>R {{ (furnitureOptionsForm.get('numberOfHeavyItems')?.value * SERVICE_PRICING.additionalFees.perHeavyItem).toFixed(2) }}</td>
+                          </tr>
+                          <tr *ngIf="furnitureOptionsForm.get('hasStairs')?.value && !furnitureOptionsForm.get('hasElevator')?.value && (furnitureOptionsForm.get('floorNumber')?.value || 0) > 0">
+                            <th>Floor Surcharge:</th>
+                            <td>R {{ ((furnitureOptionsForm.get('floorNumber')?.value || 0) * SERVICE_PRICING.additionalFees.perFloor).toFixed(2) }}</td>
+                          </tr>
+                          <tr *ngIf="(furnitureOptionsForm.get('numberOfMovers')?.value || 2) > 2">
+                            <th>Additional Movers:</th>
+                            <td>R {{ ((furnitureOptionsForm.get('numberOfMovers')?.value - 2) * SERVICE_PRICING.additionalFees.extraMover).toFixed(2) }}</td>
                           </tr>
                         </ng-container>
                         

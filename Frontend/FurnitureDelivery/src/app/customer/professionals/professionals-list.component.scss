@@ -1,0 +1,80 @@
+.professionals-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.professional-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.professionals-list .card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.professionals-list .card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.professional-name {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.professional-specialty {
+  font-size: 0.9rem;
+}
+
+.professional-rating {
+  font-size: 0.9rem;
+}
+
+.rating-value {
+  font-weight: 600;
+  margin: 0 0.5rem;
+}
+
+.professional-details {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.professional-bio {
+  font-size: 0.9rem;
+  max-width: 100%;
+}
+
+.certifications {
+  font-size: 0.8rem;
+}
+
+.distance-badge {
+  margin-top: 0.5rem;
+}
+
+.location-status {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.location-status i {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .professionals-list .card-body {
+    text-align: center;
+  }
+  
+  .col-md-3, .col-md-6 {
+    margin-bottom: 1rem;
+  }
+}
