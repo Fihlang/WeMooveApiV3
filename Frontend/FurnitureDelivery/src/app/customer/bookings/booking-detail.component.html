@@ -1,0 +1,229 @@
+<div class="booking-detail-container container py-5">
+  <!-- Loading spinner -->
+  <div *ngIf="isLoading" class="d-flex justify-content-center my-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  
+  <!-- Error message -->
+  <div *ngIf="error" class="alert alert-danger">
+    {{ error }}
+    <button class="btn btn-outline-danger ms-3" (click)="goBack()">Go Back</button>
+  </div>
+  
+  <!-- Booking details -->
+  <div *ngIf="!isLoading && booking" class="booking-detail">
+    <!-- Header with back button and booking ID -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <button class="btn btn-outline-secondary" (click)="goBack()">
+        <i class="bi bi-arrow-left"></i> Back to Bookings
+      </button>
+      <div class="booking-id">
+        Booking #{{ booking.id }}
+      </div>
+    </div>
+    
+    <!-- Booking status card -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-8">
+            <h1 class="booking-title mb-3">{{ getBookingTypeLabel(booking.bookingType) }}</h1>
+            <div class="booking-status mb-3">
+              <span class="badge rounded-pill py-2 px-3" [ngClass]="getStatusClass(booking.status)">
+                <i class="bi me-1" 
+                   [ngClass]="{'bi-hourglass-split': booking.status === BookingStatus.PENDING,
+                              'bi-check-circle': booking.status === BookingStatus.CONFIRMED,
+                              'bi-gear': booking.status === BookingStatus.IN_PROGRESS,
+                              'bi-check-circle-fill': booking.status === BookingStatus.COMPLETED,
+                              'bi-x-circle': booking.status === BookingStatus.CANCELLED}"></i>
+                {{ getStatusLabel(booking.status) }}
+              </span>
+            </div>
+            <div class="booking-time mb-2">
+              <i class="bi bi-calendar-event me-2"></i>
+              <span class="fw-bold">{{ booking.scheduledTime | date:'EEEE, MMMM d, y' }}</span> at
+              <span class="fw-bold">{{ booking.scheduledTime | date:'shortTime' }}</span>
+            </div>
+            <div class="booking-time-remaining mb-3">
+              <i class="bi bi-clock-history me-2"></i>
+              <span>{{ getBookingTimeRemaining() }}</span>
+            </div>
+            <div class="booking-location mb-2">
+              <i class="bi bi-geo-alt me-2"></i>
+              <span>{{ formatAddress(booking.address) }}</span>
+            </div>
+          </div>
+          
+          <div class="col-md-4 text-end">
+            <div class="booking-price mb-4">
+              <div class="text-muted">Total</div>
+              <div class="price-value">R{{ booking.totalCost.toFixed(2) }}</div>
+              <div class="price-details text-muted">
+                {{ booking.duration }} {{ booking.duration === 1 ? 'hour' : 'hours' }} × 
+                R{{ booking.professional?.hourlyRate }}
+              </div>
+            </div>
+            
+            <div class="booking-actions">
+              <button *ngIf="canCancel()" class="btn btn-outline-danger me-2" (click)="cancelBooking()">
+                Cancel Booking
+              </button>
+              <button *ngIf="canReview()" class="btn btn-outline-success" (click)="leaveReview()">
+                Leave Review
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Professional details -->
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Professional Details</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-flex">
+              <div class="professional-avatar me-3">
+                <img 
+                  [src]="booking.professional?.profileImageUrl || 'assets/images/default-profile.png'" 
+                  alt="{{ booking.professional?.user?.firstName }} {{ booking.professional?.user?.lastName }}"
+                  class="img-fluid rounded-circle">
+              </div>
+              <div class="professional-info">
+                <h4 class="professional-name">
+                  {{ booking.professional?.user?.firstName }} {{ booking.professional?.user?.lastName }}
+                </h4>
+                <div class="professional-rating mb-2">
+                  <i class="bi bi-star-fill text-warning me-1"></i>
+                  <span class="rating-value">{{ booking.professional?.rating.toFixed(1) }}</span>
+                  <span class="text-muted">({{ booking.professional?.totalJobs }} jobs)</span>
+                </div>
+                <div class="professional-skill mb-2">
+                  <span class="badge bg-primary">{{ booking.professional?.skills }}</span>
+                </div>
+                
+                <div class="mt-3">
+                  <a [routerLink]="['/customer/professionals', booking.professionalId]" class="btn btn-outline-primary btn-sm">
+                    View Professional Profile
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Booking Details</h5>
+          </div>
+          <div class="card-body">
+            <h6>Items Description</h6>
+            <p class="items-description mb-4">{{ booking.itemsDescription }}</p>
+            
+            <div *ngIf="booking.specialInstructions">
+              <h6>Special Instructions</h6>
+              <p class="special-instructions">{{ booking.specialInstructions }}</p>
+            </div>
+            
+            <div class="booking-timeline mt-4">
+              <div class="timeline-item d-flex align-items-center mb-3">
+                <div class="timeline-marker" 
+                     [ngClass]="{'active': booking.status !== BookingStatus.CANCELLED}"></div>
+                <div class="timeline-content ms-3">
+                  <div class="timeline-date text-muted small">
+                    {{ booking.createdAt | date:'mediumDate' }} · {{ booking.createdAt | date:'shortTime' }}
+                  </div>
+                  <div class="timeline-title">Booking Created</div>
+                </div>
+              </div>
+              
+              <div class="timeline-item d-flex align-items-center mb-3">
+                <div class="timeline-marker" 
+                     [ngClass]="{'active': booking.status !== BookingStatus.PENDING && booking.status !== BookingStatus.CANCELLED}"></div>
+                <div class="timeline-content ms-3">
+                  <div class="timeline-date text-muted small" *ngIf="booking.status !== BookingStatus.PENDING">
+                    <!-- Simulated date, this would come from API in real implementation -->
+                    {{ booking.createdAt | date:'mediumDate' }} · {{ booking.createdAt | date:'shortTime' }}
+                  </div>
+                  <div class="timeline-title" 
+                       [ngClass]="{'text-muted': booking.status === BookingStatus.PENDING || booking.status === BookingStatus.CANCELLED}">
+                    Professional Confirmed
+                  </div>
+                </div>
+              </div>
+              
+              <div class="timeline-item d-flex align-items-center mb-3">
+                <div class="timeline-marker"
+                     [ngClass]="{'active': booking.status === BookingStatus.IN_PROGRESS || booking.status === BookingStatus.COMPLETED}"></div>
+                <div class="timeline-content ms-3">
+                  <div class="timeline-date text-muted small" *ngIf="booking.status === BookingStatus.IN_PROGRESS || booking.status === BookingStatus.COMPLETED">
+                    <!-- Simulated date, this would come from API in real implementation -->
+                    {{ booking.scheduledTime | date:'mediumDate' }} · {{ booking.scheduledTime | date:'shortTime' }}
+                  </div>
+                  <div class="timeline-title"
+                       [ngClass]="{'text-muted': booking.status !== BookingStatus.IN_PROGRESS && booking.status !== BookingStatus.COMPLETED}">
+                    Service Started
+                  </div>
+                </div>
+              </div>
+              
+              <div class="timeline-item d-flex align-items-center">
+                <div class="timeline-marker"
+                     [ngClass]="{'active': booking.status === BookingStatus.COMPLETED}"></div>
+                <div class="timeline-content ms-3">
+                  <div class="timeline-date text-muted small" *ngIf="booking.status === BookingStatus.COMPLETED">
+                    {{ booking.completedTime | date:'mediumDate' }} · {{ booking.completedTime | date:'shortTime' }}
+                  </div>
+                  <div class="timeline-title"
+                       [ngClass]="{'text-muted': booking.status !== BookingStatus.COMPLETED}">
+                    Service Completed
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Cancellation policy -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Booking Information</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="info-item">
+              <i class="bi bi-clock-history"></i>
+              <h6>Cancellation Policy</h6>
+              <p>Free cancellation up to 24 hours before the scheduled service. Late cancellations may incur a fee of 50% of the total booking.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="info-item">
+              <i class="bi bi-shield-check"></i>
+              <h6>Professional Guarantee</h6>
+              <p>All professionals are vetted, background-checked, and insured. If you're not satisfied, we'll work to make it right.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="info-item">
+              <i class="bi bi-question-circle"></i>
+              <h6>Need Help?</h6>
+              <p>Contact our customer support if you have any questions or if you'd like to modify this booking.</p>
+              <a href="javascript:void(0)" class="btn btn-sm btn-outline-primary">Contact Support</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

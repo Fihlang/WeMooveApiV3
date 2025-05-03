@@ -1,0 +1,146 @@
+<div class="bookings-container container py-5">
+  <div class="row">
+    <div class="col-12">
+      <h1 class="mb-4">My Professional Bookings</h1>
+      
+      <!-- Loading spinner -->
+      <div *ngIf="isLoading" class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+      
+      <!-- Error message -->
+      <div *ngIf="error" class="alert alert-danger">
+        {{ error }}
+      </div>
+      
+      <!-- No bookings message -->
+      <div *ngIf="!isLoading && bookings.length === 0" class="text-center py-5">
+        <i class="bi bi-calendar-x display-1 text-muted"></i>
+        <h3 class="mt-4">You don't have any bookings yet</h3>
+        <p class="text-muted">Book a professional to help with moving or assembling your furniture</p>
+        <button class="btn btn-primary mt-3" [routerLink]="['/customer/professionals']">
+          Find Professionals
+        </button>
+      </div>
+      
+      <!-- Bookings status tabs and filter -->
+      <div *ngIf="!isLoading && bookings.length > 0" class="bookings-content">
+        <div class="row mb-4">
+          <div class="col-md-8">
+            <ul class="nav nav-tabs">
+              <li class="nav-item">
+                <a class="nav-link" [class.active]="statusFilter === 'all'" 
+                   (click)="changeStatusFilter('all')" href="javascript:void(0)">
+                  All Bookings ({{ bookings.length }})
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" [class.active]="statusFilter === BookingStatus.PENDING" 
+                   (click)="changeStatusFilter(BookingStatus.PENDING)" href="javascript:void(0)">
+                  Pending ({{ countBookingsByStatus(BookingStatus.PENDING) }})
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" [class.active]="statusFilter === BookingStatus.CONFIRMED" 
+                   (click)="changeStatusFilter(BookingStatus.CONFIRMED)" href="javascript:void(0)">
+                  Confirmed ({{ countBookingsByStatus(BookingStatus.CONFIRMED) }})
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" [class.active]="statusFilter === BookingStatus.COMPLETED" 
+                   (click)="changeStatusFilter(BookingStatus.COMPLETED)" href="javascript:void(0)">
+                  Completed ({{ countBookingsByStatus(BookingStatus.COMPLETED) }})
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div class="col-md-4 text-end">
+            <button class="btn btn-primary" [routerLink]="['/customer/professionals']">
+              <i class="bi bi-plus-circle me-2"></i> Book Professional
+            </button>
+          </div>
+        </div>
+        
+        <!-- No filtered bookings message -->
+        <div *ngIf="filteredBookings.length === 0" class="alert alert-info">
+          No bookings found with the selected filter.
+        </div>
+        
+        <!-- Bookings list -->
+        <div *ngIf="filteredBookings.length > 0" class="booking-cards">
+          <div class="card mb-3" *ngFor="let booking of filteredBookings">
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-2 d-flex flex-column align-items-center">
+                  <img 
+                    [src]="booking.professional?.profileImageUrl || 'assets/images/default-profile.png'" 
+                    alt="{{ booking.professional?.user?.firstName }} {{ booking.professional?.user?.lastName }}"
+                    class="img-fluid rounded-circle professional-image mb-2">
+                  <h5 class="professional-name text-center">
+                    {{ booking.professional?.user?.firstName }} {{ booking.professional?.user?.lastName }}
+                  </h5>
+                  <div class="booking-status mt-2">
+                    <span class="badge rounded-pill" [ngClass]="getStatusClass(booking.status)">
+                      {{ getStatusLabel(booking.status) }}
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <div class="booking-info">
+                    <div class="booking-type mb-2">
+                      <span class="badge bg-primary">{{ getBookingTypeLabel(booking.bookingType) }}</span>
+                    </div>
+                    <div class="booking-time mb-2">
+                      <i class="bi bi-calendar-event me-2"></i>
+                      <span class="fw-bold">{{ booking.scheduledTime | date:'EEE, MMM d, y' }}</span> at
+                      <span class="fw-bold">{{ booking.scheduledTime | date:'shortTime' }}</span>
+                    </div>
+                    <div class="booking-duration mb-2">
+                      <i class="bi bi-clock me-2"></i>
+                      <span>{{ booking.duration }} {{ booking.duration === 1 ? 'hour' : 'hours' }}</span>
+                    </div>
+                    <div class="booking-location mb-2">
+                      <i class="bi bi-geo-alt me-2"></i>
+                      <span>{{ booking.address.addressLine1 }}, {{ booking.address.city }}</span>
+                    </div>
+                    <div class="booking-description">
+                      <i class="bi bi-info-circle me-2"></i>
+                      <span>{{ booking.itemsDescription | slice:0:80 }}{{ booking.itemsDescription.length > 80 ? '...' : '' }}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-md-2 text-center">
+                  <div class="booking-price mb-3">
+                    <div class="text-muted">Total</div>
+                    <div class="price-value">R{{ booking.totalCost.toFixed(2) }}</div>
+                  </div>
+                  
+                  <div *ngIf="booking.status === BookingStatus.COMPLETED" class="booking-completed mt-2 mb-2">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span class="ms-1">{{ booking.completedTime | date:'shortDate' }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-2 d-flex flex-column justify-content-center">
+                  <button class="btn btn-outline-primary mb-2" (click)="viewBookingDetails(booking)">
+                    View Details
+                  </button>
+                  <button *ngIf="canCancel(booking)" class="btn btn-outline-danger mb-2" (click)="cancelBooking(booking)">
+                    Cancel Booking
+                  </button>
+                  <button *ngIf="canReview(booking)" class="btn btn-outline-success" (click)="reviewBooking(booking)">
+                    Leave Review
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,214 @@
+<div class="booking-container container py-5">
+  <!-- Loading spinner -->
+  <div *ngIf="isLoading" class="d-flex justify-content-center my-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  
+  <!-- Error message -->
+  <div *ngIf="error" class="alert alert-danger">
+    {{ error }}
+    <button class="btn btn-outline-danger ms-3" (click)="goBack()">Go Back</button>
+  </div>
+  
+  <!-- Success message -->
+  <div *ngIf="success" class="alert alert-success">
+    {{ success }}
+  </div>
+  
+  <!-- Booking form -->
+  <div *ngIf="!isLoading && professional" class="booking-form">
+    <!-- Header with back button -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <button class="btn btn-outline-secondary" (click)="goBack()">
+        <i class="bi bi-arrow-left"></i> Back to Professional
+      </button>
+    </div>
+    
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">Book a Professional</h2>
+      </div>
+      <div class="card-body">
+        <div class="row mb-4">
+          <div class="col-md-4 text-center">
+            <img 
+              [src]="professional.profileImageUrl || 'assets/images/default-profile.png'" 
+              alt="{{ professional.user?.firstName }} {{ professional.user?.lastName }}"
+              class="img-fluid rounded-circle professional-image mb-3">
+            <h4 class="professional-name">
+              {{ professional.user?.firstName }} {{ professional.user?.lastName }}
+            </h4>
+            <div class="professional-rating">
+              <div class="stars d-flex justify-content-center">
+                <i class="bi bi-star-fill text-warning" *ngFor="let star of [1,2,3,4,5].slice(0, professional.rating)"></i>
+                <i class="bi bi-star text-warning" *ngFor="let star of [1,2,3,4,5].slice(professional.rating)"></i>
+              </div>
+              <div class="rating-value">{{ professional.rating.toFixed(1) }} / 5.0</div>
+            </div>
+            <div class="mt-3">
+              <span class="badge bg-primary me-2">{{ professional.skills }}</span>
+              <span class="badge bg-info">R{{ professional.hourlyRate }}/hr</span>
+            </div>
+          </div>
+          
+          <div class="col-md-8">
+            <form [formGroup]="bookingForm" (ngSubmit)="submitBooking()">
+              <div class="mb-3">
+                <label for="bookingType" class="form-label">Service Type</label>
+                <select id="bookingType" class="form-select" formControlName="bookingType">
+                  <option [value]="BookingType.MOVING">Moving Assistance</option>
+                  <option [value]="BookingType.ASSEMBLY">Furniture Assembly</option>
+                </select>
+                <div *ngIf="bookingForm.get('bookingType')?.errors?.required && bookingForm.get('bookingType')?.touched" 
+                     class="text-danger mt-1">
+                  Service type is required
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="scheduledTime" class="form-label">When do you need this service?</label>
+                <input type="datetime-local" id="scheduledTime" class="form-control" formControlName="scheduledTime">
+                <div *ngIf="bookingForm.get('scheduledTime')?.errors?.required && bookingForm.get('scheduledTime')?.touched" 
+                     class="text-danger mt-1">
+                  Scheduled time is required
+                </div>
+                <small class="form-text text-muted">
+                  Earliest available time is typically 2 hours from now
+                </small>
+              </div>
+              
+              <div class="mb-3">
+                <label for="duration" class="form-label">Estimated Duration (hours): {{ bookingForm.get('duration')?.value }}</label>
+                <input type="range" id="duration" class="form-range" min="1" max="8" step="0.5" formControlName="duration">
+                <div *ngIf="bookingForm.get('duration')?.errors?.required && bookingForm.get('duration')?.touched" 
+                     class="text-danger mt-1">
+                  Duration is required
+                </div>
+                <small class="form-text text-muted">
+                  You will only be charged for the actual time spent
+                </small>
+              </div>
+              
+              <div class="mb-3">
+                <label for="addressId" class="form-label">Service Location</label>
+                <select id="addressId" class="form-select" formControlName="addressId">
+                  <option [ngValue]="null">Select an address</option>
+                  <option *ngFor="let address of addresses" [value]="address.id">
+                    {{ address.addressLine1 }}, {{ address.city }}, {{ address.zipCode }}
+                    <span *ngIf="address.isDefault">(Default)</span>
+                  </option>
+                </select>
+                <div *ngIf="bookingForm.get('addressId')?.errors?.required && bookingForm.get('addressId')?.touched" 
+                     class="text-danger mt-1">
+                  Service location is required
+                </div>
+                <small class="form-text text-muted">
+                  <a href="javascript:void(0)">+ Add a new address</a>
+                </small>
+              </div>
+              
+              <div class="mb-3">
+                <label for="itemsDescription" class="form-label">What needs to be {{ bookingForm.get('bookingType')?.value === BookingType.MOVING ? 'moved' : 'assembled' }}?</label>
+                <textarea id="itemsDescription" class="form-control" rows="3" formControlName="itemsDescription" 
+                          placeholder="Describe the furniture items or packages that need to be {{ bookingForm.get('bookingType')?.value === BookingType.MOVING ? 'moved' : 'assembled' }}"></textarea>
+                <div *ngIf="bookingForm.get('itemsDescription')?.errors?.required && bookingForm.get('itemsDescription')?.touched" 
+                     class="text-danger mt-1">
+                  Item description is required
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="specialInstructions" class="form-label">Special Instructions (Optional)</label>
+                <textarea id="specialInstructions" class="form-control" rows="2" formControlName="specialInstructions" 
+                          placeholder="Any special requirements or instructions for the professional"></textarea>
+              </div>
+              
+              <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="termsAccepted" formControlName="termsAccepted">
+                <label class="form-check-label" for="termsAccepted">
+                  I agree to the <a href="javascript:void(0)">terms and conditions</a>
+                </label>
+                <div *ngIf="bookingForm.get('termsAccepted')?.errors?.requiredTrue && bookingForm.get('termsAccepted')?.touched" 
+                     class="text-danger mt-1">
+                  You must accept the terms and conditions
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card-footer">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="price-summary">
+              <h5>Price Summary</h5>
+              <table class="table">
+                <tbody>
+                  <tr>
+                    <th>Hourly Rate:</th>
+                    <td>R{{ professional.hourlyRate }}.00</td>
+                  </tr>
+                  <tr>
+                    <th>Duration:</th>
+                    <td>{{ bookingForm.get('duration')?.value || 0 }} hours</td>
+                  </tr>
+                  <tr class="total-price">
+                    <th>Total Price:</th>
+                    <td>R{{ totalPrice.toFixed(2) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <small class="text-muted">
+                * Final price may vary based on actual service duration
+              </small>
+            </div>
+          </div>
+          <div class="col-md-6 d-flex align-items-center justify-content-end">
+            <button type="button" class="btn btn-outline-secondary me-2" (click)="goBack()">Cancel</button>
+            <button type="button" class="btn btn-primary" 
+                    [disabled]="bookingForm.invalid || isSubmitting" 
+                    (click)="submitBooking()">
+              <i class="bi bi-check-circle me-2"></i>
+              {{ isSubmitting ? 'Confirming...' : 'Confirm Booking' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Professional policy information -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Booking Information</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="info-item">
+              <i class="bi bi-clock-history"></i>
+              <h6>Cancellation Policy</h6>
+              <p>Free cancellation up to 24 hours before the scheduled service. Late cancellations may incur a fee of 50% of the total booking.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="info-item">
+              <i class="bi bi-shield-check"></i>
+              <h6>Professional Guarantee</h6>
+              <p>All professionals are vetted, background-checked, and insured. If you're not satisfied, we'll work to make it right.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="info-item">
+              <i class="bi bi-credit-card"></i>
+              <h6>Payment</h6>
+              <p>You'll only be charged after the service is completed. Payment can be made online or in cash to the professional.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

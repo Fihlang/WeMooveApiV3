@@ -1,0 +1,95 @@
+.booking-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.professional-image {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.professional-name {
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+
+.professional-rating {
+  margin: 0.5rem 0;
+}
+
+.stars {
+  margin-bottom: 0.3rem;
+}
+
+.stars i {
+  font-size: 1.2rem;
+  margin-right: 0.2rem;
+}
+
+.rating-value {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.form-label {
+  font-weight: 500;
+}
+
+.form-control, .form-select {
+  padding: 0.75rem;
+}
+
+.price-summary {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 0.375rem;
+}
+
+.price-summary h5 {
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.price-summary .table {
+  margin-bottom: 0.5rem;
+}
+
+.total-price {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.info-item {
+  text-align: center;
+  padding: 1.5rem 1rem;
+}
+
+.info-item i {
+  font-size: 2.5rem;
+  color: #0d6efd;
+  margin-bottom: 1rem;
+}
+
+.info-item h6 {
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+
+.info-item p {
+  font-size: 0.9rem;
+  color: #6c757d;
+  line-height: 1.6;
+}
+
+@media (max-width: 767px) {
+  .price-summary {
+    margin-bottom: 1.5rem;
+  }
+  
+  .col-md-4, .col-md-8 {
+    margin-bottom: 1.5rem;
+  }
+}
