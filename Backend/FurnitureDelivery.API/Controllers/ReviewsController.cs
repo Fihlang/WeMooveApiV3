@@ -1,187 +1,199 @@
-using FurnitureDelivery.API.Data;
-using FurnitureDelivery.API.DTOs;
-using FurnitureDelivery.API.Models;
-using FurnitureDelivery.API.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using FurnitureDelivery.API.Models;
+using FurnitureDelivery.API.DTOs;
+using FurnitureDelivery.API.Services;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace FurnitureDelivery.API.Controllers
 {
-    [Route("api/reviews")]
     [ApiController]
+    [Route("api/reviews")]
     public class ReviewsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IReviewService _reviewService;
+        private readonly IBookingService _bookingService;
+        private readonly IUserService _userService;
+        private readonly IProfessionalService _professionalService;
         private readonly INotificationService _notificationService;
-
+        private readonly IWebSocketService _webSocketService;
+        
         public ReviewsController(
-            ApplicationDbContext context,
-            INotificationService notificationService)
+            IReviewService reviewService,
+            IBookingService bookingService,
+            IUserService userService,
+            IProfessionalService professionalService,
+            INotificationService notificationService,
+            IWebSocketService webSocketService)
         {
-            _context = context;
+            _reviewService = reviewService;
+            _bookingService = bookingService;
+            _userService = userService;
+            _professionalService = professionalService;
             _notificationService = notificationService;
+            _webSocketService = webSocketService;
         }
-
-        // GET: api/reviews/driver/5
-        [HttpGet("driver/{driverId}")]
-        public async Task<ActionResult<IEnumerable<CreateReviewDTO>>> GetDriverReviews(int driverId)
+        
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ReviewResponseDTO>> GetReview(int id)
         {
-            // Check if driver exists
-            bool driverExists = await _context.Drivers.AnyAsync(d => d.Id == driverId);
-            if (!driverExists)
+            var review = await _reviewService.GetReviewByIdAsync(id);
+            
+            if (review == null)
             {
-                return NotFound(new { message = "Driver not found" });
+                return NotFound();
             }
-
-            // Get reviews
-            var reviews = await _context.Reviews
-                .Include(r => r.Customer)
-                .Include(r => r.Driver)
-                    .ThenInclude(d => d.User)
-                .Where(r => r.DriverId == driverId)
-                .OrderByDescending(r => r.CreatedAt)
-                .ToListAsync();
-
-            // Map to DTOs
-            var CreateReviewDTOs = reviews.Select(r => new ReviewResponseDTO
-            {
-                Id = r.Id,
-                DeliveryId = r.DeliveryId,
-                CustomerId = r.CustomerId,
-                CustomerName = $"{r.Customer.FirstName} {r.Customer.LastName}",
-                DriverId = r.DriverId,
-                DriverName = $"{r.Driver.User.FirstName} {r.Driver.User.LastName}",
-                Rating = r.Rating,
-                Comment = r.Comment,
-                CreatedAt = r.CreatedAt
-            }).ToList();
-
-            return Ok(CreateReviewDTOs);
+            
+            return Ok(review);
         }
-
-        // POST: api/reviews
+        
+        [Authorize]
         [HttpPost]
-        [Authorize(Roles = "customer")]
-        public async Task<ActionResult<CreateReviewDTO>> CreateReview(ReviewResponseDTO createCreateReviewDTO)
+        public async Task<ActionResult<ReviewResponseDTO>> CreateReview([FromBody] CreateReviewDTO model)
         {
-            // Get user ID from claims
-            int userId = int.Parse(User.FindFirst("uid")?.Value);
-
-            // Check if delivery exists and is completed
-            var delivery = await _context.Deliveries
-                .FirstOrDefaultAsync(d => d.Id == createCreateReviewDTO.DeliveryId);
-
-            if (delivery == null)
+            if (!ModelState.IsValid)
             {
-                return NotFound(new { message = "Delivery not found" });
+                return BadRequest(ModelState);
             }
-
-            // Check if user is the customer of this delivery
-            if (delivery.CustomerId != userId)
+            
+            var currentUser = await _userService.GetUserFromClaimsAsync(User);
+            var booking = await _bookingService.GetBookingByIdAsync(model.BookingId);
+            
+            // Verify permission - only customer who made the booking can review
+            if (booking == null)
+            {
+                return NotFound("Booking not found");
+            }
+            
+            if (booking.CustomerId != currentUser.Id && !User.IsInRole("Admin"))
             {
                 return Forbid();
             }
-
-            // Check if delivery is completed
-            if (delivery.Status != "completed")
+            
+            // Verify booking is completed
+            if (booking.Status != "completed")
             {
-                return BadRequest(new { message = "Cannot review a delivery that is not completed" });
+                return BadRequest("Only completed bookings can be reviewed");
             }
-
-            // Check if driver is assigned to this delivery
-            if (delivery.DriverId != createCreateReviewDTO.DriverId)
+            
+            // Check if review already exists for this booking
+            var existingReview = await _reviewService.GetReviewByBookingIdAsync(model.BookingId);
+            if (existingReview != null)
             {
-                return BadRequest(new { message = "Driver is not assigned to this delivery" });
+                return BadRequest("A review already exists for this booking");
             }
-
-            // Check if review already exists
-            bool reviewExists = await _context.Reviews
-                .AnyAsync(r => r.DeliveryId == createCreateReviewDTO.DeliveryId && 
-                              r.CustomerId == userId && 
-                              r.DriverId == createCreateReviewDTO.DriverId);
-
-            if (reviewExists)
+            
+            try
             {
-                return BadRequest(new { message = "Review already exists for this delivery" });
+                // Set the proper customer ID from the booking
+                model.CustomerId = booking.CustomerId;
+                
+                var review = await _reviewService.CreateReviewAsync(model);
+                
+                // Update professional rating
+                await _professionalService.RecalculateProfessionalRatingAsync(model.ProfessionalId);
+                
+                // Send notification to professional
+                await _notificationService.CreateNotificationAsync(new CreateNotificationDTO
+                {
+                    UserId = booking.Professional.UserId,
+                    Title = "New Review Received",
+                    Message = $"You've received a {model.Rating}-star review for your recent {booking.BookingType} service.",
+                    Type = "review",
+                    ReferenceId = review.Id
+                });
+                
+                // Send real-time update via WebSocket
+                await _webSocketService.SendProfessionalUpdateAsync(
+                    model.ProfessionalId,
+                    "review_added", 
+                    new 
+                    { 
+                        professionalId = model.ProfessionalId,
+                        reviewId = review.Id,
+                        rating = model.Rating,
+                        serviceType = model.ServiceType
+                    }
+                );
+                
+                return CreatedAtAction(nameof(GetReview), new { id = review.Id }, review);
             }
-
-            // Get customer details
-            var customer = await _context.Users.FindAsync(userId);
-
-            // Create review
-            var review = new Review
+            catch (Exception ex)
             {
-                DeliveryId = createCreateReviewDTO.DeliveryId,
-                CustomerId = userId,
-                DriverId = createCreateReviewDTO.DriverId,
-                Rating = createCreateReviewDTO.Rating,
-                Comment = createCreateReviewDTO.Comment,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Reviews.Add(review);
-            await _context.SaveChangesAsync();
-
-            // Update driver rating
-            await UpdateDriverRating(createCreateReviewDTO.DriverId);
-
-            // Get driver details
-            var driver = await _context.Drivers
-                .Include(d => d.User)
-                .FirstOrDefaultAsync(d => d.Id == createCreateReviewDTO.DriverId);
-
-            // Create notification for driver
-            await _notificationService.CreateNotification(
-                driver.UserId,
-                "new_review",
-                "New Review Received",
-                $"{customer.FirstName} {customer.LastName} gave you a {createCreateReviewDTO.Rating}-star review.",
-                "review",
-                review.Id);
-
-            // Return the created review
-            var CreateReviewDTO = new ReviewResponseDTO
-            {
-                Id = review.Id,
-                DeliveryId = review.DeliveryId,
-                CustomerId = review.CustomerId,
-                CustomerName = $"{customer.FirstName} {customer.LastName}",
-                DriverId = review.DriverId,
-                DriverName = $"{driver.User.FirstName} {driver.User.LastName}",
-                Rating = review.Rating,
-                Comment = review.Comment,
-                CreatedAt = review.CreatedAt
-            };
-
-            return CreatedAtAction(nameof(GetDriverReviews), new { driverId = review.DriverId }, CreateReviewDTO);
+                return BadRequest(ex.Message);
+            }
         }
-
-        // Private helper methods
-        private async Task UpdateDriverRating(int driverId)
+        
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}")]
+        public async Task<ActionResult<ReviewResponseDTO>> UpdateReview(int id, [FromBody] UpdateReviewDTO model)
         {
-            // Calculate average rating
-            var reviews = await _context.Reviews
-                .Where(r => r.DriverId == driverId)
-                .ToListAsync();
-
-            if (reviews.Count == 0)
+            if (!ModelState.IsValid)
             {
-                return;
+                return BadRequest(ModelState);
             }
-
-            double averageRating = reviews.Average(r => r.Rating);
-
-            // Update driver rating
-            var driver = await _context.Drivers.FindAsync(driverId);
-            if (driver != null)
+            
+            var review = await _reviewService.GetReviewByIdAsync(id);
+            
+            if (review == null)
             {
-                driver.Rating = averageRating;
-                await _context.SaveChangesAsync();
+                return NotFound();
+            }
+            
+            // Only admin can update reviews
+            if (!User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+            
+            try
+            {
+                var updatedReview = await _reviewService.UpdateReviewAsync(id, model);
+                
+                // Update professional rating
+                await _professionalService.RecalculateProfessionalRatingAsync(updatedReview.ProfessionalId);
+                
+                return Ok(updatedReview);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteReview(int id)
+        {
+            var review = await _reviewService.GetReviewByIdAsync(id);
+            
+            if (review == null)
+            {
+                return NotFound();
+            }
+            
+            // Only admin can delete reviews
+            if (!User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+            
+            var professionalId = review.ProfessionalId;
+            
+            try
+            {
+                await _reviewService.DeleteReviewAsync(id);
+                
+                // Update professional rating
+                await _professionalService.RecalculateProfessionalRatingAsync(professionalId);
+                
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
             }
         }
     }
