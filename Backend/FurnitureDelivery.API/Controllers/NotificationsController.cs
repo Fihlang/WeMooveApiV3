@@ -1,148 +1,163 @@
-using FurnitureDelivery.API.Data;
-using FurnitureDelivery.API.DTOs;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using FurnitureDelivery.API.Models;
+using FurnitureDelivery.API.DTOs;
+using FurnitureDelivery.API.Services;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace FurnitureDelivery.API.Controllers
 {
-    [Route("api/notifications")]
     [ApiController]
+    [Route("api/notifications")]
     [Authorize]
     public class NotificationsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-
-        public NotificationsController(ApplicationDbContext context)
+        private readonly INotificationService _notificationService;
+        private readonly IUserService _userService;
+        private readonly IWebSocketService _webSocketService;
+        
+        public NotificationsController(
+            INotificationService notificationService,
+            IUserService userService,
+            IWebSocketService webSocketService)
         {
-            _context = context;
+            _notificationService = notificationService;
+            _userService = userService;
+            _webSocketService = webSocketService;
         }
-
-        // GET: api/notifications
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<NotificationDTO>>> GetNotifications([FromQuery] bool? unreadOnly = null)
+        
+        [HttpGet("{id}")]
+        public async Task<ActionResult<NotificationResponseDTO>> GetNotification(int id)
         {
-            // Get user ID from claims
-            int userId = int.Parse(User.FindFirst("uid")?.Value);
-
-            // Build query
-            var query = _context.Notifications
-                .Where(n => n.UserId == userId);
-
-            // Filter by read status if requested
-            if (unreadOnly.HasValue && unreadOnly.Value)
-            {
-                query = query.Where(n => !n.IsRead);
-            }
-
-            // Execute query
-            var notifications = await query
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
-
-            // Map to DTOs
-            var notificationDtos = notifications.Select(n => new NotificationDTO
-            {
-                Id = n.Id,
-                UserId = n.UserId,
-                Type = n.Type,
-                Title = n.Title,
-                Message = n.Message,
-                IsRead = n.IsRead,
-                RelatedEntityType = n.RelatedEntityType,
-                RelatedEntityId = n.RelatedEntityId,
-                CreatedAt = n.CreatedAt
-            }).ToList();
-
-            return Ok(notificationDtos);
-        }
-
-        // PATCH: api/notifications/5/read
-        [HttpPatch("{id}/read")]
-        public async Task<IActionResult> MarkAsRead(int id)
-        {
-            // Get user ID from claims
-            int userId = int.Parse(User.FindFirst("uid")?.Value);
-
-            // Get notification
-            var notification = await _context.Notifications.FindAsync(id);
-
+            var currentUser = await _userService.GetUserFromClaimsAsync(User);
+            var notification = await _notificationService.GetNotificationByIdAsync(id);
+            
             if (notification == null)
             {
-                return NotFound(new { message = "Notification not found" });
+                return NotFound();
             }
-
-            // Check if notification belongs to user
-            if (notification.UserId != userId)
+            
+            // Only the user who owns the notification or an admin can view it
+            if (notification.UserId != currentUser.Id && !User.IsInRole("Admin"))
             {
                 return Forbid();
             }
-
-            // Check if already read
-            if (notification.IsRead)
-            {
-                return Ok(new { message = "Notification already marked as read" });
-            }
-
-            // Mark as read
-            notification.IsRead = true;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Notification marked as read" });
+            
+            return Ok(notification);
         }
-
-        // PATCH: api/notifications/read-all
-        [HttpPatch("read-all")]
-        public async Task<IActionResult> MarkAllAsRead()
+        
+        [HttpGet("user")]
+        public async Task<ActionResult<IEnumerable<NotificationResponseDTO>>> GetUserNotifications(
+            [FromQuery] bool? unreadOnly = false)
         {
-            // Get user ID from claims
-            int userId = int.Parse(User.FindFirst("uid")?.Value);
-
-            // Get all unread notifications
-            var unreadNotifications = await _context.Notifications
-                .Where(n => n.UserId == userId && !n.IsRead)
-                .ToListAsync();
-
-            // Mark all as read
-            foreach (var notification in unreadNotifications)
+            var currentUser = await _userService.GetUserFromClaimsAsync(User);
+            
+            if (unreadOnly == true)
             {
-                notification.IsRead = true;
+                var unreadNotifications = await _notificationService.GetUnreadNotificationsByUserIdAsync(currentUser.Id);
+                return Ok(unreadNotifications);
             }
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "All notifications marked as read", count = unreadNotifications.Count });
+            else
+            {
+                var allNotifications = await _notificationService.GetNotificationsByUserIdAsync(currentUser.Id);
+                return Ok(allNotifications);
+            }
         }
-
-        // DELETE: api/notifications/5
+        
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<NotificationResponseDTO>> CreateNotification([FromBody] CreateNotificationDTO model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
+            try
+            {
+                var notification = await _notificationService.CreateNotificationAsync(model);
+                
+                // Send real-time update via WebSocket
+                await _webSocketService.SendCustomerUpdateAsync(
+                    notification.UserId, 
+                    "notification_received", 
+                    notification
+                );
+                
+                return CreatedAtAction(nameof(GetNotification), new { id = notification.Id }, notification);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        
+        [HttpPut("{id}/read")]
+        public async Task<ActionResult<NotificationResponseDTO>> MarkNotificationAsRead(int id)
+        {
+            var currentUser = await _userService.GetUserFromClaimsAsync(User);
+            var notification = await _notificationService.GetNotificationByIdAsync(id);
+            
+            if (notification == null)
+            {
+                return NotFound();
+            }
+            
+            // Only the user who owns the notification or an admin can mark it as read
+            if (notification.UserId != currentUser.Id && !User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+            
+            try
+            {
+                var updatedNotification = await _notificationService.MarkNotificationAsReadAsync(id);
+                return Ok(updatedNotification);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        
+        [HttpPut("mark-all-read")]
+        public async Task<ActionResult> MarkAllNotificationsAsRead()
+        {
+            var currentUser = await _userService.GetUserFromClaimsAsync(User);
+            
+            try
+            {
+                await _notificationService.MarkAllNotificationsAsReadAsync(currentUser.Id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteNotification(int id)
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> DeleteNotification(int id)
         {
-            // Get user ID from claims
-            int userId = int.Parse(User.FindFirst("uid")?.Value);
-
-            // Get notification
-            var notification = await _context.Notifications.FindAsync(id);
-
+            var notification = await _notificationService.GetNotificationByIdAsync(id);
+            
             if (notification == null)
             {
-                return NotFound(new { message = "Notification not found" });
+                return NotFound();
             }
-
-            // Check if notification belongs to user
-            if (notification.UserId != userId)
+            
+            try
             {
-                return Forbid();
+                await _notificationService.DeleteNotificationAsync(id);
+                return NoContent();
             }
-
-            // Delete notification
-            _context.Notifications.Remove(notification);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Notification deleted" });
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

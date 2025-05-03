@@ -1,0 +1,56 @@
+<div class="notification-container">
+  <!-- Notification Bell -->
+  <div class="notification-bell" (click)="togglePanel()">
+    <i class="bi bi-bell-fill"></i>
+    <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+  </div>
+  
+  <!-- Notification Panel -->
+  <div class="notification-panel" [class.active]="isPanelOpen">
+    <div class="notification-header">
+      <h4>Notifications</h4>
+      <button *ngIf="unreadCount > 0" class="mark-all-read" (click)="markAllAsRead()">
+        Mark all as read
+      </button>
+      <button class="close-panel" (click)="togglePanel()">
+        <i class="bi bi-x"></i>
+      </button>
+    </div>
+    
+    <div class="notification-body">
+      <!-- Loading state -->
+      <div *ngIf="isLoading" class="notification-loading">
+        <div class="spinner-border text-primary spinner-sm" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <span>Loading notifications...</span>
+      </div>
+      
+      <!-- Empty state -->
+      <div *ngIf="!isLoading && notifications.length === 0" class="notification-empty">
+        <i class="bi bi-bell-slash"></i>
+        <p>No notifications yet</p>
+      </div>
+      
+      <!-- Notification list -->
+      <div *ngIf="!isLoading && notifications.length > 0" class="notification-list">
+        <div *ngFor="let notification of notifications" 
+             class="notification-item" 
+             [class.unread]="!notification.isRead"
+             (click)="handleNotificationClick(notification)">
+          <div class="notification-icon">
+            <i class="bi {{ getNotificationIcon(notification.type) }}"></i>
+          </div>
+          <div class="notification-content">
+            <div class="notification-title">{{ notification.title }}</div>
+            <div class="notification-message">{{ notification.message }}</div>
+            <div class="notification-time">{{ getTimeAgo(notification.createdAt) }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Backdrop for closing panel when clicked outside -->
+  <div *ngIf="isPanelOpen" class="notification-backdrop" (click)="togglePanel()"></div>
+</div>

@@ -1,18 +1,24 @@
+export enum NotificationType {
+  BOOKING_REQUEST = 'booking_request',
+  BOOKING_STATUS = 'booking_status',
+  PAYMENT = 'payment',
+  REVIEW = 'review',
+  DELIVERY = 'delivery',
+  SYSTEM = 'system'
+}
+
 export interface Notification {
   id: number;
   userId: number;
   title: string;
   message: string;
-  type: 'delivery_status' | 'chat_message' | 'payment_status' | 'system';
-  referenceId?: number; // ID of the related entity (delivery, message, etc.)
+  type: NotificationType | string;
+  referenceId?: number;
   isRead: boolean;
   createdAt: Date;
 }
 
-export interface CreateNotificationRequest {
-  userId: number;
-  title: string;
-  message: string;
-  type: string;
-  referenceId?: number;
+export interface NotificationBadge {
+  count: number;
+  type: NotificationType | string;
 }
